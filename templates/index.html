@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* ---- Navbar ---- */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            height: 64px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .nav-brand {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #aaa;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 18px;
+            border-radius: 8px;
+            transition: all 0.25s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .owner-name {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .owner-name .label {
+            color: #fbbf24;
+            margin-right: 4px;
+        }
+
+        .owner-name .name {
+            background: linear-gradient(135deg, #ff6b6b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ---- Hero Section ---- */
+        .hero {
+            text-align: center;
+            padding: 60px 20px 30px;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(0, 230, 138, 0.12), transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 17px;
+            color: #777;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .badge-count {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #00e68a;
+            background: rgba(0, 230, 138, 0.1);
+            border: 1px solid rgba(0, 230, 138, 0.2);
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ---- Grid ---- */
+        .grid-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px 30px 80px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 28px;
+        }
+
+        /* ---- Book Card ---- */
+        .book-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: default;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeUp 0.5s forwards;
+        }
+
+        .book-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0, 230, 138, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 230, 138, 0.08), 0 0 0 1px rgba(0, 230, 138, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .book-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00e68a, #00b4d8);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .book-card:hover::after {
+            opacity: 1;
+        }
+
+        .book-img-wrapper {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: #111;
+        }
+
+        .book-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .book-card:hover .book-img-wrapper img {
+            transform: scale(1.06);
+        }
+
+        .book-img-wrapper .overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: linear-gradient(transparent, rgba(10, 10, 15, 0.9));
+            pointer-events: none;
+        }
+
+        .book-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f0f0f0;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .book-author {
+            font-size: 13px;
+            color: #00e68a;
+            font-weight: 500;
+            margin-bottom: 14px;
+        }
+
+        .book-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .rating-stars {
+            display: flex;
+            gap: 2px;
+        }
+
+        .star {
+            color: #fbbf24;
+            font-size: 13px;
+        }
+
+        .star.empty {
+            color: #333;
+        }
+
+        /* ---- Animations ---- */
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ---- Scroll to Top ---- */
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(0, 230, 138, 0.15);
+            border: 1px solid rgba(0, 230, 138, 0.3);
+            color: #00e68a;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .scroll-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scroll-top:hover {
+            background: rgba(0, 230, 138, 0.25);
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 20px;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .grid-container {
+                padding: 20px 16px 60px;
+                gap: 16px;
+            }
+
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .owner-name {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <span class="nav-brand">📚 BOOKIFY</span>
+        <ul class="nav-links">
+            <li><a href="/" class="active">Home</a></li>
+            <li><a href="/recommend">Recommend</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+        <span class="owner-name"><span class="label">OWNER:</span><span class="name">AKSHAT TIWARI</span></span>
+    </nav>
+
+    <section class="hero">
+        <h1>Top 50 Books</h1>
+        <p>The most popular and highest-rated books curated from thousands of reader reviews</p>
+        <span class="badge-count">{{ book_name|length }} BOOKS</span>
+    </section>
+
+    <div class="grid-container">
+        {% for i in range(book_name|length) %}
+        <div class="book-card" style="animation-delay: {{ i * 0.05 }}s">
+            <div class="book-img-wrapper">
+                <img src="{{ image[i] }}" alt="{{ book_name[i] }}" loading="lazy"
+                    onerror="this.src='https://via.placeholder.com/200x280/1a1a2e/e0e0e0?text=No+Cover'">
+                <div class="overlay"></div>
+            </div>
+            <div class="book-title">{{ book_name[i] }}</div>
+            <div class="book-author">{{ author[i] }}</div>
+            <div class="book-stats">
+                <div class="stat">
+                    <span class="stat-label">Votes</span>
+                    <span class="stat-value">{{ votes[i] }}</span>
+                </div>
+                <div class="stat" style="align-items:flex-end;">
+                    <span class="stat-label">Rating</span>
+                    <div class="rating-stars">
+                        {% set full_stars = (rating[i] | round(0, 'floor') | int) %}
+                        {% for s in range(full_stars) %}
+                        <span class="star">★</span>
+                        {% endfor %}
+                        {% for s in range(6 - full_stars) %}
+                        <span class="star empty">★</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+    <script>
+        // Scroll-to-top button visibility
+        window.addEventListener('scroll', () => {
+            document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 400);
+        });
+    </script>
+
+</body>
+
+</html>
