@@ -1,12 +1,22 @@
 from flask import Flask, render_template, request, jsonify
 import pickle
 import numpy as np
+import os
 from difflib import get_close_matches
 
 popular_df = pickle.load(open('popular.pkl','rb'))
 pt = pickle.load(open('pt.pkl','rb'))
 books = pickle.load(open('books.pkl','rb'))
 similarity_scores = pickle.load(open('similarity_scores.pkl','rb'))
+
+# Load NCF deep learning similarity scores (if available)
+ncf_available = os.path.exists('ncf_similarity_scores.pkl')
+if ncf_available:
+    ncf_similarity_scores = pickle.load(open('ncf_similarity_scores.pkl', 'rb'))
+    print("✅ NCF deep learning model loaded!")
+else:
+    ncf_similarity_scores = None
+    print("⚠️  NCF model not found — using classic mode only")
 
 # Pre-compute list of all book titles for fuzzy matching
 all_titles = list(pt.index)
@@ -25,7 +35,7 @@ def index():
 
 @app.route('/recommend')
 def recommend_ui():
-    return render_template('recommend.html')
+    return render_template('recommend.html', ncf_available=ncf_available)
 
 @app.route('/autocomplete')
 def autocomplete():
@@ -51,6 +61,7 @@ def autocomplete():
 @app.route('/recommend_books', methods=['post'])
 def recommend():
     user_input = request.form.get('user_input', '').strip()
+    mode = request.form.get('mode', 'classic')  # 'classic' or 'ai'
 
     # Try exact match first
     matches = np.where(pt.index == user_input)[0]
@@ -63,10 +74,19 @@ def recommend():
             matches = np.where(pt.index == user_input)[0]
 
     if len(matches) == 0:
-        return render_template('recommend.html', data=[], error=f'No book found matching "{request.form.get("user_input")}". Try a different title.')
+        return render_template('recommend.html', data=[], error=f'No book found matching "{request.form.get("user_input")}". Try a different title.', ncf_available=ncf_available)
 
     index = matches[0]
-    similar_items = sorted(list(enumerate(similarity_scores[index])), key=lambda x: x[1], reverse=True)[1:5]
+
+    # Choose similarity source based on mode
+    if mode == 'ai' and ncf_available:
+        scores = ncf_similarity_scores
+        used_mode = 'ai'
+    else:
+        scores = similarity_scores
+        used_mode = 'classic'
+
+    similar_items = sorted(list(enumerate(scores[index])), key=lambda x: x[1], reverse=True)[1:5]
 
     data = []
     for i in similar_items:
@@ -80,7 +100,7 @@ def recommend():
 
     print(data)
 
-    return render_template('recommend.html', data=data, matched_title=user_input)
+    return render_template('recommend.html', data=data, matched_title=user_input, mode=used_mode, ncf_available=ncf_available)
 
 if __name__ == '__main__':
     app.run(debug=True)
