@@ -41,6 +41,7 @@
             font-weight: 700;
             background: linear-gradient(135deg, #00e68a, #00b4d8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
             text-decoration: none;
@@ -68,23 +69,7 @@
             background: rgba(255, 255, 255, 0.08);
         }
 
-        .owner-name {
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
 
-        .owner-name .label {
-            color: #fbbf24;
-            margin-right: 4px;
-        }
-
-        .owner-name .name {
-            background: linear-gradient(135deg, #ff6b6b, #fbbf24);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
 
         /* ---- Hero ---- */
         .hero {
@@ -112,6 +97,7 @@
             margin-bottom: 12px;
             background: linear-gradient(135deg, #ffffff, #a0a0a0);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -435,6 +421,8 @@
             position: relative;
             width: 52px;
             height: 28px;
+            display: inline-block;
+            cursor: pointer;
         }
 
         .toggle-switch input {
@@ -488,6 +476,55 @@
             letter-spacing: 0.5px;
         }
 
+        .genre-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: 6px;
+            margin-left: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .genre-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            max-width: 700px;
+            margin: 12px auto 0;
+        }
+
+        .genre-chip {
+            display: inline-block;
+            padding: 5px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.25s;
+            text-decoration: none;
+        }
+
+        .genre-chip:hover {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .autocomplete-item.genre-item {
+            color: #f59e0b;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.1);
+        }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             nav {
@@ -508,8 +545,9 @@
                 gap: 16px;
             }
 
-            .owner-name {
-                display: none;
+
+            .genre-chips {
+                padding: 0 8px;
             }
         }
     </style>
@@ -522,33 +560,46 @@
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/recommend" class="active">Recommend</a></li>
-            <li><a href="#">Contact</a></li>
+            <li><a href="/mood">Mood</a></li>
+            <li><a href="#contact">Contact</a></li>
         </ul>
-        <span class="owner-name"><span class="label">OWNER:</span><span class="name">AKSHAT TIWARI</span></span>
     </nav>
 
     <section class="hero">
         <h1>Discover Books</h1>
-        <p>Type any book title and we'll find similar reads you'll love</p>
+        <p>Type any book title <strong>or genre</strong> and we'll find the best reads for you</p>
     </section>
 
     <div class="search-section">
         <form action="/recommend_books" method="post">
             <div class="search-wrapper">
                 <input name="user_input" id="bookInput" type="text" class="search-input"
-                    placeholder="Search for a book title..." autocomplete="off">
+                    placeholder="Search by book title or genre..." autocomplete="off">
                 <div id="autocompleteList" class="autocomplete-list"></div>
             </div>
-            <p class="search-hint">💡 Fuzzy matching is enabled — <span>no exact title needed</span></p>
+            <p class="search-hint">💡 Search by title with fuzzy matching, or try a genre like
+                <strong>"romance"</strong>, <strong>"sci-fi"</strong>, <strong>"horror"</strong>
+            </p>
+
+            {% if genre_available and all_genres %}
+            <div class="genre-chips">
+                {% for g in all_genres %}
+                {% if g != 'Fiction' %}
+                <span class="genre-chip"
+                    onclick="document.getElementById('bookInput').value='📂 Genre: {{g}}'; document.querySelector('form').submit();">{{g}}</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% if ncf_available %}
             <div class="mode-toggle">
-                <label class="mode-label-classic" id="labelClassic">📊 Classic</label>
-                <div class="toggle-switch">
+                <label class="mode-label-classic" id="labelClassic" for="modeToggle">📊 Classic</label>
+                <label class="toggle-switch">
                     <input type="checkbox" id="modeToggle" name="mode_toggle">
                     <span class="slider"></span>
-                </div>
-                <label class="mode-label-ai" id="labelAI">🤖 AI-Powered</label>
+                </label>
+                <label class="mode-label-ai" id="labelAI" for="modeToggle">🤖 AI-Powered</label>
                 <input type="hidden" name="mode" id="modeInput" value="classic">
             </div>
             {% endif %}
@@ -561,7 +612,13 @@
     <div class="alert-error">{{ error }}</div>
     {% endif %}
 
-    {% if matched_title %}
+    {% if genre_mode and matched_genre %}
+    <div class="matched-info">
+        📂 Showing top <strong>{{ matched_genre }}</strong> books
+        <span class="genre-badge">{{ genre_count }} books in genre</span>
+        {% if mode == 'ai' %}<span class="ai-badge">🤖 DEEP LEARNING</span>{% endif %}
+    </div>
+    {% elif matched_title %}
     <div class="matched-info">
         Showing recommendations for <strong>"{{ matched_title }}"</strong>
         {% if mode == 'ai' %}<span class="ai-badge">🤖 DEEP LEARNING</span>{% endif %}
@@ -569,7 +626,11 @@
     {% endif %}
 
     {% if data %}
+    {% if genre_mode %}
+    <p class="results-label">Top {{ matched_genre }} Books</p>
+    {% else %}
     <p class="results-label">Similar Books</p>
+    {% endif %}
     <div class="results-grid">
         {% for i in data %}
         <div class="result-card" style="animation-delay: {{ loop.index0 * 0.1 }}s">
@@ -612,9 +673,11 @@
                                 list.innerHTML = '';
                                 return;
                             }
-                            list.innerHTML = data.map((title, i) =>
-                                `<div class="autocomplete-item" data-index="${i}">${highlightMatch(title, query)}</div>`
-                            ).join('');
+                            list.innerHTML = data.map((title, i) => {
+                                const isGenre = title.startsWith('📂');
+                                const cls = isGenre ? 'autocomplete-item genre-item' : 'autocomplete-item';
+                                return `<div class="${cls}" data-index="${i}">${isGenre ? title : highlightMatch(title, query)}</div>`;
+                            }).join('');
                             list.classList.add('active');
                         });
                 }, 200);
@@ -686,6 +749,56 @@
             }
         })();
     </script>
+
+    <!-- Contact Section -->
+    <footer id="contact" style="
+        max-width: 600px; margin: 60px auto 0; padding: 48px 32px 56px;
+        text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    ">
+        <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 6px;
+            background: linear-gradient(135deg,#00e68a,#00b4d8);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;">Contact</h2>
+        <p style="color:#555; font-size:13px; margin-bottom:28px; letter-spacing:0.5px;">Get in touch</p>
+        <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">👤</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Owner</div>
+                    <div style="font-size:15px; font-weight:600; color:#f0f0f0;">AKSHAT TIWARI</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📞</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Phone</div>
+                    <a href="tel:7080046904"
+                        style="font-size:15px; font-weight:600; color:#00e68a; text-decoration:none;">7080046904</a>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📧</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Email</div>
+                    <a href="mailto:akshatr147@gmail.com"
+                        style="font-size:15px; font-weight:600; color:#00b4d8; text-decoration:none;">akshatr147@gmail.com</a>
+                </div>
+            </div>
+        </div>
+        <p style="color:#333; font-size:12px; margin-top:32px;">© 2026 BOOKIFY. All rights reserved.</p>
+    </footer>
 
 </body>
 
