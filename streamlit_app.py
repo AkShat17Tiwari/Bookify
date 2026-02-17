@@ -1,6 +1,7 @@
 import streamlit as st
 import pickle
 import numpy as np
+import os
 from difflib import get_close_matches
 
 # ── Page config ──
@@ -14,9 +15,14 @@ def load_data():
     books = pickle.load(open('books.pkl', 'rb'))
     similarity_scores = pickle.load(open('similarity_scores.pkl', 'rb'))
     all_titles = list(pt.index)
-    return popular_df, pt, books, similarity_scores, all_titles
+    # Load NCF deep learning scores if available
+    ncf_scores = None
+    if os.path.exists('ncf_similarity_scores.pkl'):
+        ncf_scores = pickle.load(open('ncf_similarity_scores.pkl', 'rb'))
+    return popular_df, pt, books, similarity_scores, all_titles, ncf_scores
 
-popular_df, pt, books, similarity_scores, all_titles = load_data()
+popular_df, pt, books, similarity_scores, all_titles, ncf_similarity_scores = load_data()
+ncf_available = ncf_similarity_scores is not None
 
 # ── Custom CSS ──
 st.markdown("""
@@ -180,6 +186,18 @@ with tab2:
         placeholder="Start typing a book title..."
     )
 
+    # Mode toggle
+    if ncf_available:
+        mode = st.radio(
+            "Recommendation Engine",
+            ["📊 Classic (Cosine Similarity)", "🤖 AI-Powered (Deep Learning)"],
+            horizontal=True,
+            help="Classic uses cosine similarity. AI-Powered uses Neural Collaborative Filtering."
+        )
+        use_ai = "AI-Powered" in mode
+    else:
+        use_ai = False
+
     if st.button("Get Recommendations →"):
         if not selected_book:
             st.markdown('<div class="err-banner">Please select a book title first.</div>', unsafe_allow_html=True)
@@ -196,10 +214,12 @@ with tab2:
             if len(matches) == 0:
                 st.markdown(f'<div class="err-banner">No book found matching "{selected_book}". Try a different title.</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="match-banner">Showing recommendations for <b>"{user_input}"</b></div>', unsafe_allow_html=True)
+                mode_label = ' <span style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;padding:3px 10px;font-size:11px;font-weight:700;border-radius:6px;margin-left:8px;letter-spacing:0.5px;">🤖 DEEP LEARNING</span>' if use_ai else ''
+                st.markdown(f'<div class="match-banner">Showing recommendations for <b>"{user_input}"</b>{mode_label}</div>', unsafe_allow_html=True)
 
                 index = matches[0]
-                similar_items = sorted(list(enumerate(similarity_scores[index])), key=lambda x: x[1], reverse=True)[1:5]
+                scores = ncf_similarity_scores if use_ai else similarity_scores
+                similar_items = sorted(list(enumerate(scores[index])), key=lambda x: x[1], reverse=True)[1:5]
 
                 data = []
                 for item in similar_items:

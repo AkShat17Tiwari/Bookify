@@ -394,6 +394,100 @@
             }
         }
 
+        /* ---- Mode Toggle ---- */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin: 16px 0 4px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+        }
+
+        .mode-toggle label {
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+            letter-spacing: 0.3px;
+        }
+
+        .mode-label-classic {
+            color: #00e68a;
+        }
+
+        .mode-label-ai {
+            color: #555;
+        }
+
+        .mode-toggle input:checked~.mode-label-classic {
+            color: #555;
+        }
+
+        .mode-toggle input:checked~.mode-label-ai {
+            color: #a78bfa;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 230, 138, 0.3);
+            border-radius: 28px;
+            transition: all 0.3s;
+        }
+
+        .slider::before {
+            content: '';
+            position: absolute;
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch input:checked+.slider {
+            background: rgba(167, 139, 250, 0.4);
+        }
+
+        .toggle-switch input:checked+.slider::before {
+            transform: translateX(24px);
+        }
+
+        .ai-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.12);
+            border: 1px solid rgba(167, 139, 250, 0.25);
+            border-radius: 6px;
+            margin-left: 8px;
+            letter-spacing: 0.5px;
+        }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             nav {
@@ -446,6 +540,19 @@
                 <div id="autocompleteList" class="autocomplete-list"></div>
             </div>
             <p class="search-hint">💡 Fuzzy matching is enabled — <span>no exact title needed</span></p>
+
+            {% if ncf_available %}
+            <div class="mode-toggle">
+                <label class="mode-label-classic" id="labelClassic">📊 Classic</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="modeToggle" name="mode_toggle">
+                    <span class="slider"></span>
+                </div>
+                <label class="mode-label-ai" id="labelAI">🤖 AI-Powered</label>
+                <input type="hidden" name="mode" id="modeInput" value="classic">
+            </div>
+            {% endif %}
+
             <button type="submit" class="submit-btn">Get Recommendations →</button>
         </form>
     </div>
@@ -455,7 +562,10 @@
     {% endif %}
 
     {% if matched_title %}
-    <div class="matched-info">Showing recommendations for <strong>"{{ matched_title }}"</strong></div>
+    <div class="matched-info">
+        Showing recommendations for <strong>"{{ matched_title }}"</strong>
+        {% if mode == 'ai' %}<span class="ai-badge">🤖 DEEP LEARNING</span>{% endif %}
+    </div>
     {% endif %}
 
     {% if data %}
@@ -559,6 +669,21 @@
                     list.classList.remove('active');
                 }
             });
+        })();
+
+        // Mode toggle logic
+        (function () {
+            const toggle = document.getElementById('modeToggle');
+            const modeInput = document.getElementById('modeInput');
+            const labelClassic = document.getElementById('labelClassic');
+            const labelAI = document.getElementById('labelAI');
+            if (toggle) {
+                toggle.addEventListener('change', function () {
+                    modeInput.value = this.checked ? 'ai' : 'classic';
+                    labelClassic.style.color = this.checked ? '#555' : '#00e68a';
+                    labelAI.style.color = this.checked ? '#a78bfa' : '#555';
+                });
+            }
         })();
     </script>
 
