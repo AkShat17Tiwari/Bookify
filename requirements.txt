@@ -1,7 +1,5 @@
 flask
-streamlit
 numpy
 pandas
 gunicorn
-torch
 scikit-learn
