@@ -41,6 +41,7 @@
             font-weight: 700;
             background: linear-gradient(135deg, #00e68a, #00b4d8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
         }
@@ -67,23 +68,7 @@
             background: rgba(255, 255, 255, 0.08);
         }
 
-        .owner-name {
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
 
-        .owner-name .label {
-            color: #fbbf24;
-            margin-right: 4px;
-        }
-
-        .owner-name .name {
-            background: linear-gradient(135deg, #ff6b6b, #fbbf24);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
 
         /* ---- Hero Section ---- */
         .hero {
@@ -111,6 +96,7 @@
             margin-bottom: 12px;
             background: linear-gradient(135deg, #ffffff, #a0a0a0);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -331,10 +317,6 @@
             .grid-container {
                 grid-template-columns: repeat(2, 1fr);
             }
-
-            .owner-name {
-                display: none;
-            }
         }
     </style>
 </head>
@@ -346,9 +328,9 @@
         <ul class="nav-links">
             <li><a href="/" class="active">Home</a></li>
             <li><a href="/recommend">Recommend</a></li>
-            <li><a href="#">Contact</a></li>
+            <li><a href="/mood">Mood</a></li>
+            <li><a href="#contact">Contact</a></li>
         </ul>
-        <span class="owner-name"><span class="label">OWNER:</span><span class="name">AKSHAT TIWARI</span></span>
     </nav>
 
     <section class="hero">
@@ -379,7 +361,7 @@
                         {% for s in range(full_stars) %}
                         <span class="star">★</span>
                         {% endfor %}
-                        {% for s in range(6 - full_stars) %}
+                        {% for s in range(5 - full_stars) %}
                         <span class="star empty">★</span>
                         {% endfor %}
                     </div>
@@ -397,6 +379,56 @@
             document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 400);
         });
     </script>
+
+    <!-- Contact Section -->
+    <footer id="contact" style="
+        max-width: 600px; margin: 60px auto 0; padding: 48px 32px 56px;
+        text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    ">
+        <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 6px;
+            background: linear-gradient(135deg,#00e68a,#00b4d8);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;">Contact</h2>
+        <p style="color:#555; font-size:13px; margin-bottom:28px; letter-spacing:0.5px;">Get in touch</p>
+        <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">👤</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Owner</div>
+                    <div style="font-size:15px; font-weight:600; color:#f0f0f0;">AKSHAT TIWARI</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📞</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Phone</div>
+                    <a href="tel:7080046904"
+                        style="font-size:15px; font-weight:600; color:#00e68a; text-decoration:none;">7080046904</a>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📧</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Email</div>
+                    <a href="mailto:akshatr147@gmail.com"
+                        style="font-size:15px; font-weight:600; color:#00b4d8; text-decoration:none;">akshatr147@gmail.com</a>
+                </div>
+            </div>
+        </div>
+        <p style="color:#333; font-size:12px; margin-top:32px;">© 2026 BOOKIFY. All rights reserved.</p>
+    </footer>
 
 </body>
 

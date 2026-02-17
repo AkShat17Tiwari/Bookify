@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — Mood Reader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* ---- Navbar ---- */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            height: 64px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .nav-brand {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #aaa;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 18px;
+            border-radius: 8px;
+            transition: all 0.25s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+
+
+
+        /* ---- Hero ---- */
+        .hero {
+            text-align: center;
+            padding: 50px 20px 20px;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            height: 350px;
+            background: radial-gradient(ellipse, rgba(167, 139, 250, 0.12), transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 17px;
+            color: #666;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* ---- Steps indicator ---- */
+        .steps-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            margin: 30px auto 30px;
+            max-width: 600px;
+            padding: 0 20px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            border: 2px solid #333;
+            background: rgba(255, 255, 255, 0.03);
+            color: #555;
+            transition: all 0.4s ease;
+            z-index: 2;
+        }
+
+        .step-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #444;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            transition: color 0.4s ease;
+            margin-top: 6px;
+        }
+
+        .step-item.active .step-circle {
+            border-color: #a78bfa;
+            background: rgba(167, 139, 250, 0.15);
+            color: #a78bfa;
+        }
+
+        .step-item.active .step-label {
+            color: #a78bfa;
+        }
+
+        .step-item.done .step-circle {
+            border-color: #00e68a;
+            background: rgba(0, 230, 138, 0.15);
+            color: #00e68a;
+        }
+
+        .step-item.done .step-label {
+            color: #00e68a;
+        }
+
+        .step-connector {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: #222;
+            z-index: 1;
+        }
+
+        .step-connector-fill {
+            height: 100%;
+            width: 0;
+            transition: width 0.5s ease;
+        }
+
+        .step-item.done .step-connector .step-connector-fill {
+            width: 100%;
+            background: #00e68a;
+        }
+
+        /* ---- Camera Area ---- */
+        .cam-section {
+            max-width: 580px;
+            margin: 0 auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        .cam-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #111;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .cam-wrapper video,
+        .cam-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #snapshot {
+            z-index: 2;
+            display: none;
+        }
+
+        #overlay {
+            z-index: 3;
+            display: none;
+        }
+
+        .cam-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #555;
+            gap: 12px;
+        }
+
+        .cam-placeholder .icon {
+            font-size: 64px;
+        }
+
+        .cam-placeholder p {
+            font-size: 14px;
+        }
+
+        /* Flash effect */
+        .cam-flash {
+            position: absolute;
+            inset: 0;
+            background: #fff;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .cam-flash.fire {
+            animation: flashFire 0.35s ease-out;
+        }
+
+        @keyframes flashFire {
+            0% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* ---- Buttons ---- */
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(167, 139, 250, 0.25);
+        }
+
+        .btn-secondary {
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .btn-green {
+            color: #0a0a0f;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+        }
+
+        .btn-green:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 230, 138, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* ---- Status ---- */
+        .status-bar {
+            text-align: center;
+            margin-bottom: 24px;
+            min-height: 28px;
+        }
+
+        .status-msg {
+            display: inline-block;
+            padding: 6px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            animation: fadeUp 0.3s ease;
+        }
+
+        .status-loading {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .status-success {
+            color: #00e68a;
+            background: rgba(0, 230, 138, 0.1);
+            border: 1px solid rgba(0, 230, 138, 0.2);
+        }
+
+        .status-error {
+            color: #f87171;
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        /* ---- Emotion Result Card ---- */
+        .emotion-card {
+            max-width: 580px;
+            margin: 0 auto 24px;
+            padding: 32px;
+            background: rgba(167, 139, 250, 0.05);
+            border: 1px solid rgba(167, 139, 250, 0.15);
+            border-radius: 20px;
+            text-align: center;
+            animation: fadeUp 0.6s ease;
+            display: none;
+        }
+
+        .emotion-emoji {
+            font-size: 64px;
+            margin-bottom: 12px;
+        }
+
+        .emotion-label {
+            font-size: 32px;
+            font-weight: 800;
+            text-transform: capitalize;
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+        }
+
+        /* Accuracy bar */
+        .accuracy-section {
+            margin: 8px 0 20px;
+        }
+
+        .accuracy-label {
+            font-size: 13px;
+            color: #888;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .accuracy-bar-bg {
+            width: 80%;
+            max-width: 300px;
+            height: 10px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .accuracy-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            width: 0;
+            transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .accuracy-bar-fill.high {
+            background: linear-gradient(90deg, #00e68a, #00b4d8);
+        }
+
+        .accuracy-bar-fill.medium {
+            background: linear-gradient(90deg, #fbbf24, #f97316);
+        }
+
+        .accuracy-bar-fill.low {
+            background: linear-gradient(90deg, #f87171, #ef4444);
+        }
+
+        .accuracy-pct {
+            font-size: 40px;
+            font-weight: 800;
+            margin: 12px 0 4px;
+            letter-spacing: -1px;
+        }
+
+        .accuracy-pct.high {
+            color: #00e68a;
+        }
+
+        .accuracy-pct.medium {
+            color: #fbbf24;
+        }
+
+        .accuracy-pct.low {
+            color: #f87171;
+        }
+
+        .all-expr {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+
+        .expr-chip {
+            font-size: 12px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #888;
+            font-weight: 500;
+        }
+
+        .expr-chip.top {
+            background: rgba(167, 139, 250, 0.12);
+            border-color: rgba(167, 139, 250, 0.3);
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .emotion-genres {
+            color: #666;
+            font-size: 14px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .emotion-genres span {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        /* ---- AI toggle ---- */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin: 16px 0;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+        }
+
+        .mode-toggle label {
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+            letter-spacing: 0.3px;
+        }
+
+        .mode-label-classic {
+            color: #00e68a;
+        }
+
+        .mode-label-ai {
+            color: #555;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 230, 138, 0.3);
+            border-radius: 28px;
+            transition: all 0.3s;
+        }
+
+        .slider::before {
+            content: '';
+            position: absolute;
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch input:checked+.slider {
+            background: rgba(167, 139, 250, 0.4);
+        }
+
+        .toggle-switch input:checked+.slider::before {
+            transform: translateX(24px);
+        }
+
+        /* ---- Results Grid ---- */
+        .results-section {
+            display: none;
+        }
+
+        .results-label {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #555;
+            margin: 10px 0 30px;
+        }
+
+        .results-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 30px 80px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 28px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeUp 0.5s forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(167, 139, 250, 0.3);
+            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.08), 0 0 0 1px rgba(167, 139, 250, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .result-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #a78bfa, #ec4899);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .result-card:hover::after {
+            opacity: 1;
+        }
+
+        .result-img-wrapper {
+            width: 100%;
+            height: 280px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: #111;
+        }
+
+        .result-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .result-card:hover .result-img-wrapper img {
+            transform: scale(1.06);
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f0f0f0;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .result-author {
+            font-size: 13px;
+            color: #a78bfa;
+            font-weight: 500;
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(167, 139, 250, 0.15);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            color: #a78bfa;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+            z-index: 2;
+        }
+
+        /* ---- Animations ---- */
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 20px;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .cam-section {
+                padding: 0 16px;
+            }
+
+            .results-grid {
+                padding: 0 16px 60px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+
+            .accuracy-pct {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="/">📚 BOOKIFY</a>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/recommend">Recommend</a></li>
+            <li><a href="/mood" class="active">Mood</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero">
+        <h1>😊 Mood Reader</h1>
+        <p>Capture a photo, we'll read your expression and suggest the perfect books for your mood</p>
+    </section>
+
+    <!-- Steps Indicator -->
+    <div class="steps-bar">
+        <div class="step-item active" id="step1">
+            <div class="step-circle">1</div>
+            <span class="step-label">Capture</span>
+            <div class="step-connector">
+                <div class="step-connector-fill"></div>
+            </div>
+        </div>
+        <div class="step-item" id="step2">
+            <div class="step-circle">2</div>
+            <span class="step-label">Detect</span>
+            <div class="step-connector">
+                <div class="step-connector-fill"></div>
+            </div>
+        </div>
+        <div class="step-item" id="step3">
+            <div class="step-circle">3</div>
+            <span class="step-label">Books</span>
+        </div>
+    </div>
+
+    <div class="cam-section">
+        <div class="cam-wrapper" id="camWrapper">
+            <div class="cam-placeholder" id="camPlaceholder">
+                <span class="icon">📷</span>
+                <p>Click "Start Camera" to begin</p>
+            </div>
+            <video id="video" autoplay muted playsinline style="display:none;"></video>
+            <canvas id="snapshot"></canvas>
+            <canvas id="overlay"></canvas>
+            <div class="cam-flash" id="flash"></div>
+        </div>
+
+        <div class="status-bar" id="statusBar"></div>
+
+        <!-- Step 1: Start & Capture -->
+        <div class="btn-row" id="btnRowCam">
+            <button class="btn btn-secondary" id="btnStart" onclick="startCamera()">📷 Start Camera</button>
+            <button class="btn btn-primary" id="btnCapture" onclick="capturePhoto()" disabled>📸 Capture Photo</button>
+        </div>
+
+        <!-- Step 2: Analyze (hidden until photo captured) -->
+        <div class="btn-row" id="btnRowAnalyze" style="display:none;">
+            <button class="btn btn-secondary" onclick="retake()">🔄 Retake</button>
+            <button class="btn btn-primary" id="btnAnalyze" onclick="analyzeMood()">🔍 Analyze Mood</button>
+        </div>
+
+        {% if ncf_available %}
+        <div class="mode-toggle">
+            <label class="mode-label-classic" id="labelClassic">📊 Classic</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="modeToggle">
+                <span class="slider"></span>
+            </label>
+            <label class="mode-label-ai" id="labelAI">🤖 AI-Powered</label>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Emotion Result -->
+    <div class="emotion-card" id="emotionCard"></div>
+
+    <!-- Step 3: Get Books button (hidden until mood detected) -->
+    <div class="btn-row" id="btnRowBooks" style="display:none;">
+        <button class="btn btn-green" id="btnBooks" onclick="getBooks()">📚 Get Book Recommendations →</button>
+    </div>
+
+    <!-- Results -->
+    <div class="results-section" id="resultsSection">
+        <p class="results-label" id="resultsLabel"></p>
+        <div class="results-grid" id="resultsGrid"></div>
+    </div>
+
+    <script>
+        const EMOJIS = {
+            happy: '😊', sad: '😢', angry: '😠', fearful: '😨',
+            disgusted: '🤢', surprised: '😲', neutral: '😐'
+        };
+
+        let video, modelsLoaded = false, cameraOn = false;
+        let detectedEmotion = null, detectedConfidence = 0, allExpressions = null;
+
+        /* ── Step tracker ── */
+        function setStep(n) {
+            ['step1', 'step2', 'step3'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                el.classList.remove('active', 'done');
+                if (i + 1 < n) el.classList.add('done');
+                else if (i + 1 === n) el.classList.add('active');
+            });
+        }
+
+        /* ── Status messages ── */
+        function setStatus(msg, type) {
+            const bar = document.getElementById('statusBar');
+            if (!msg) { bar.innerHTML = ''; return; }
+            const cls = type === 'loading' ? 'status-loading loading-pulse'
+                : type === 'success' ? 'status-success'
+                    : 'status-error';
+            bar.innerHTML = `<span class="status-msg ${cls}">${msg}</span>`;
+        }
+
+        /* ── Load models ── */
+        async function loadModels() {
+            setStatus('Loading face detection models…', 'loading');
+            const u = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(u),
+                faceapi.nets.faceExpressionNet.loadFromUri(u)
+            ]);
+            modelsLoaded = true;
+            setStatus('Models loaded ✓', 'success');
+            setTimeout(() => setStatus(''), 2000);
+        }
+
+        /* ── STEP 1a: Start / stop camera ── */
+        async function startCamera() {
+            if (cameraOn) {
+                stopCamera();
+                return;
+            }
+
+            // Check for secure context (getUserMedia requires HTTPS or localhost)
+            if (!window.isSecureContext) {
+                setStatus('⚠ Camera requires HTTPS or localhost. <a href="http://localhost:5001/mood" style="color:#a78bfa;text-decoration:underline;">Click here to open via localhost</a>', 'error');
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                setStatus('Camera API not available in this browser.', 'error');
+                return;
+            }
+
+            try {
+                setStatus('Requesting camera…', 'loading');
+                video = document.getElementById('video');
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+
+                video.srcObject = stream;
+
+                // Wait for the video to be ready before showing it
+                await new Promise((resolve, reject) => {
+                    video.onloadedmetadata = () => resolve();
+                    video.onerror = (e) => reject(e);
+                    setTimeout(() => reject(new Error('Video load timeout')), 8000);
+                });
+
+                await video.play();
+
+                video.style.display = 'block';
+                document.getElementById('camPlaceholder').style.display = 'none';
+                document.getElementById('snapshot').style.display = 'none';
+                cameraOn = true;
+                document.getElementById('btnStart').textContent = '⏹ Stop Camera';
+                if (!modelsLoaded) await loadModels();
+                document.getElementById('btnCapture').disabled = false;
+                setStatus('Camera ready — capture your photo!', 'success');
+                setTimeout(() => setStatus(''), 3000);
+
+            } catch (e) {
+                console.error('Camera error:', e);
+                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                    setStatus('Camera permission denied. Please allow camera access in your browser settings and reload.', 'error');
+                } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+                    setStatus('No camera found. Please connect a webcam.', 'error');
+                } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+                    setStatus('Camera is in use by another app. Close other apps using the camera and try again.', 'error');
+                } else if (e.name === 'OverconstrainedError') {
+                    setStatus('Camera constraints not supported. Trying again…', 'loading');
+                    // Retry with no constraints
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        video.srcObject = stream;
+                        await new Promise(r => { video.onloadedmetadata = r; });
+                        await video.play();
+                        video.style.display = 'block';
+                        document.getElementById('camPlaceholder').style.display = 'none';
+                        document.getElementById('snapshot').style.display = 'none';
+                        cameraOn = true;
+                        document.getElementById('btnStart').textContent = '⏹ Stop Camera';
+                        if (!modelsLoaded) await loadModels();
+                        document.getElementById('btnCapture').disabled = false;
+                        setStatus('Camera ready — capture your photo!', 'success');
+                    } catch (e2) {
+                        setStatus('Camera setup failed: ' + e2.message, 'error');
+                    }
+                } else {
+                    setStatus('Camera error: ' + (e.message || 'Unknown error'), 'error');
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            video.style.display = 'none';
+            document.getElementById('camPlaceholder').style.display = 'flex';
+            document.getElementById('btnStart').textContent = '📷 Start Camera';
+            document.getElementById('btnCapture').disabled = true;
+            cameraOn = false;
+        }
+
+        /* ── STEP 1b: Capture photo ── */
+        function capturePhoto() {
+            if (!cameraOn) return;
+
+            // Flash effect
+            const flash = document.getElementById('flash');
+            flash.classList.remove('fire');
+            void flash.offsetWidth;
+            flash.classList.add('fire');
+
+            // Draw current frame to snapshot canvas
+            const snap = document.getElementById('snapshot');
+            snap.width = video.videoWidth;
+            snap.height = video.videoHeight;
+            snap.getContext('2d').drawImage(video, 0, 0);
+            snap.style.display = 'block';
+
+            // Freeze: stop camera stream, show snapshot
+            video.srcObject.getTracks().forEach(t => t.stop());
+            video.style.display = 'none';
+            cameraOn = false;
+
+            // UI: show Analyze / Retake buttons
+            document.getElementById('btnRowCam').style.display = 'none';
+            document.getElementById('btnRowAnalyze').style.display = 'flex';
+
+            setStep(2);
+            setStatus('Photo captured! Click "Analyze Mood" to detect your expression.', 'success');
+        }
+
+        /* ── Retake ── */
+        function retake() {
+            document.getElementById('snapshot').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('btnRowAnalyze').style.display = 'none';
+            document.getElementById('btnRowCam').style.display = 'flex';
+            document.getElementById('btnRowBooks').style.display = 'none';
+            document.getElementById('emotionCard').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('btnStart').textContent = '📷 Start Camera';
+            document.getElementById('btnCapture').disabled = true;
+            document.getElementById('camPlaceholder').style.display = 'flex';
+            detectedEmotion = null;
+            setStep(1);
+            setStatus('');
+        }
+
+        /* ── STEP 2: Analyze mood ── */
+        async function analyzeMood() {
+            const btn = document.getElementById('btnAnalyze');
+            btn.disabled = true;
+            btn.textContent = '🔍 Analyzing…';
+            setStatus('Detecting facial expression…', 'loading');
+
+            try {
+                const snap = document.getElementById('snapshot');
+                const detection = await faceapi
+                    .detectSingleFace(snap, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 }))
+                    .withFaceExpressions();
+
+                if (!detection) {
+                    setStatus('No face detected — please retake with a clear view of your face.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Analyze Mood';
+                    return;
+                }
+
+                // Draw bounding box on overlay
+                const ov = document.getElementById('overlay');
+                ov.width = snap.width;
+                ov.height = snap.height;
+                ov.style.display = 'block';
+                const dims = faceapi.matchDimensions(ov, snap, true);
+                const resized = faceapi.resizeResults(detection, dims);
+                faceapi.draw.drawDetections(ov, resized);
+
+                // Find top emotion
+                const expr = detection.expressions;
+                allExpressions = expr;
+                detectedEmotion = Object.keys(expr).reduce((a, b) => expr[a] > expr[b] ? a : b);
+                detectedConfidence = expr[detectedEmotion];
+                const pct = (detectedConfidence * 100).toFixed(1);
+
+                // Accuracy level
+                const lvl = detectedConfidence >= 0.7 ? 'high' : detectedConfidence >= 0.4 ? 'medium' : 'low';
+
+                // Build expression chips
+                const sortedExpr = Object.entries(expr).sort((a, b) => b[1] - a[1]);
+                const chips = sortedExpr.map(([em, val]) =>
+                    `<span class="expr-chip ${em === detectedEmotion ? 'top' : ''}">${EMOJIS[em] || ''} ${em} ${(val * 100).toFixed(0)}%</span>`
+                ).join('');
+
+                // Show emotion card
+                const card = document.getElementById('emotionCard');
+                card.innerHTML = `
+                <div class="emotion-emoji">${EMOJIS[detectedEmotion] || '😐'}</div>
+                <div class="emotion-label">${detectedEmotion}</div>
+                <div class="accuracy-section">
+                    <div class="accuracy-label">Detection Accuracy</div>
+                    <div class="accuracy-pct ${lvl}">${pct}%</div>
+                    <div class="accuracy-bar-bg">
+                        <div class="accuracy-bar-fill ${lvl}" id="accBar"></div>
+                    </div>
+                </div>
+                <div class="all-expr">${chips}</div>
+            `;
+                card.style.display = 'block';
+
+                // Animate accuracy bar
+                requestAnimationFrame(() => {
+                    document.getElementById('accBar').style.width = pct + '%';
+                });
+
+                // Show "Get Books" button
+                document.getElementById('btnRowBooks').style.display = 'flex';
+                document.getElementById('btnRowAnalyze').style.display = 'none';
+
+                setStep(3);
+                setStatus('', '');
+
+            } catch (err) {
+                setStatus('Detection error — try retaking the photo.', 'error');
+                console.error(err);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '🔍 Analyze Mood';
+        }
+
+        /* ── STEP 3: Get books ── */
+        async function getBooks() {
+            if (!detectedEmotion) return;
+
+            const btn = document.getElementById('btnBooks');
+            btn.disabled = true;
+            btn.textContent = '📚 Loading…';
+
+            const toggle = document.getElementById('modeToggle');
+            const mode = toggle && toggle.checked ? 'ai' : 'classic';
+
+            try {
+                const res = await fetch('/mood_recommend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emotion: detectedEmotion, mode })
+                });
+                const data = await res.json();
+
+                // Add genres to emotion card
+                const genreList = data.genres.map(g => `<span>${g}</span>`).join(', ');
+                const card = document.getElementById('emotionCard');
+                // Remove old genres div if exists
+                const oldGenres = card.querySelector('.emotion-genres');
+                if (oldGenres) oldGenres.remove();
+                card.querySelector('.emotion-card, .all-expr')?.insertAdjacentHTML('afterend',
+                    `<div class="emotion-genres">Recommending from: ${genreList}</div>`
+                );
+
+                // Build book cards
+                if (data.books.length > 0) {
+                    const grid = document.getElementById('resultsGrid');
+                    grid.innerHTML = data.books.map((book, i) => `
+                    <div class="result-card" style="animation-delay: ${i * 0.08}s">
+                        <span class="rank-badge">#${i + 1}</span>
+                        <div class="result-img-wrapper">
+                            <img src="${book[2]}" alt="${book[0]}" loading="lazy"
+                                onerror="this.src='https://via.placeholder.com/200x280/1a1a2e/e0e0e0?text=No+Cover'">
+                        </div>
+                        <div class="result-title">${book[0]}</div>
+                        <div class="result-author">${book[1]}</div>
+                    </div>
+                `).join('');
+                    document.getElementById('resultsLabel').textContent =
+                        `📚 Books for your ${detectedEmotion} mood`;
+                    document.getElementById('resultsSection').style.display = 'block';
+
+                    // Scroll to results
+                    document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch (err) {
+                setStatus('Failed to fetch recommendations.', 'error');
+                console.error(err);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '📚 Get Book Recommendations →';
+        }
+
+        /* ── Mode toggle styling ── */
+        (function () {
+            const toggle = document.getElementById('modeToggle');
+            if (toggle) {
+                toggle.addEventListener('change', function () {
+                    document.getElementById('labelClassic').style.color = this.checked ? '#555' : '#00e68a';
+                    document.getElementById('labelAI').style.color = this.checked ? '#a78bfa' : '#555';
+                });
+            }
+        })();
+    </script>
+
+    <!-- Contact Section -->
+    <footer id="contact" style="
+        max-width: 600px; margin: 60px auto 0; padding: 48px 32px 56px;
+        text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    ">
+        <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 6px;
+            background: linear-gradient(135deg,#a78bfa,#ec4899);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;">Contact</h2>
+        <p style="color:#555; font-size:13px; margin-bottom:28px; letter-spacing:0.5px;">Get in touch</p>
+        <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">👤</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Owner</div>
+                    <div style="font-size:15px; font-weight:600; color:#f0f0f0;">AKSHAT TIWARI</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📞</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Phone</div>
+                    <a href="tel:7080046904"
+                        style="font-size:15px; font-weight:600; color:#a78bfa; text-decoration:none;">7080046904</a>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📧</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Email</div>
+                    <a href="mailto:akshatr147@gmail.com"
+                        style="font-size:15px; font-weight:600; color:#ec4899; text-decoration:none;">akshatr147@gmail.com</a>
+                </div>
+            </div>
+        </div>
+        <p style="color:#333; font-size:12px; margin-top:32px;">© 2026 BOOKIFY. All rights reserved.</p>
+    </footer>
+
+</body>
+
+</html>
