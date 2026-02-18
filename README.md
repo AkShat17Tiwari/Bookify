@@ -1,5 +1,7 @@
 # 📚 BOOKIFY — Intelligent Book Recommendation System
 
+### 🚀 **[Live Demo](https://bookify-n7pc.onrender.com)** | 💻 **[Localhost](http://127.0.0.1:5001)**
+
 A full-stack book recommendation engine featuring collaborative filtering, deep learning (Neural Collaborative Filtering), genre-based search, and webcam-powered mood detection for personalized reading suggestions.
 
 ---

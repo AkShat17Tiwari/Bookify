@@ -1,0 +1,7 @@
+✅ NCF deep learning model loaded!
+✅ Genre data loaded: 18 genres, 1207 classified books
+✅ Genre index cache built for 18 genres
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
