@@ -160,6 +160,18 @@ streamlit run streamlit_app.py
 
 ---
 
+## 🌍 Deployment
+
+### **[🔗 Visit Live App](https://bookify-n7pc.onrender.com)**
+
+To deploy your own instance:
+1. Fork the repository
+2. Create a new Web Service on Render
+3. Connect your GitHub repo
+4. Render will automatically detect the `render.yaml` configuration
+
+---
+
 ## 🧠 ML Pipeline
 
 ### Classic Mode — Cosine Similarity
