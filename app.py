@@ -115,7 +115,7 @@ def get_genre_recommendations(genre_name, mode='classic', count=8):
         sim = ncf_similarity_scores
     else:
         sim = similarity_scores
-
+    
     # Vectorized: get the submatrix for genre books and compute mean similarity
     # sim_sub[i, j] = similarity between genre_book_i and genre_book_j
     sim_sub = sim[np.ix_(genre_indices, genre_indices)].copy()
@@ -133,7 +133,7 @@ def get_genre_recommendations(genre_name, mode='classic', count=8):
         title = pt.index[idx]
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            data.append([info['title'], info['author'], info['image']])
+            data.append([title, info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
 
     return data, genre_name
 
@@ -175,7 +175,7 @@ def mood_recommend():
     mode = data.get('mode', 'classic')
 
     genres = EMOTION_GENRES.get(emotion, EMOTION_GENRES['neutral'])
-
+    
     # Gather recommendations from each mapped genre
     all_data = []
     for genre_name in genres:
@@ -282,7 +282,7 @@ def recommend():
         title = pt.index[i[0]]
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            data.append([info['title'], info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
+            data.append([title, info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
 
     return render_template('recommend.html', data=data, matched_title=user_input, mode=used_mode,
                            ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
