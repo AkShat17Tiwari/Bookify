@@ -9,8 +9,8 @@ with open('popular.pkl', 'rb') as f:
     popular_df = pickle.load(f)
 with open('pt.pkl', 'rb') as f:
     pt = pickle.load(f)
-with open('books.pkl', 'rb') as f:
-    books = pickle.load(f)
+with open('books_slim.pkl', 'rb') as f:
+    book_info_lookup = pickle.load(f)
 with open('similarity_scores.pkl', 'rb') as f:
     similarity_scores = pickle.load(f)
 
@@ -70,21 +70,7 @@ else:
 
 # Pre-compute list of all book titles for fuzzy matching
 all_titles = list(pt.index)
-
-# Pre-compute book info lookup for fast access (vectorized, no per-book DataFrame filter)
 title_to_index = {title: i for i, title in enumerate(pt.index)}
-_pt_titles = set(pt.index)
-_lookup_df = books[books['Book-Title'].isin(_pt_titles)].drop_duplicates('Book-Title')
-_lookup_df = _lookup_df.set_index('Book-Title')
-book_info_lookup = {}
-for title in all_titles:
-    if title in _lookup_df.index:
-        row = _lookup_df.loc[title]
-        book_info_lookup[title] = {
-            'title': title,
-            'author': row['Book-Author'],
-            'image': row['Image-URL-M'],
-        }
 
 # Pre-compute genre index arrays for fast vectorized scoring
 genre_index_cache = {}
@@ -293,13 +279,10 @@ def recommend():
 
     data = []
     for i in similar_items:
-        item = []
-        temp_df = books[books['Book-Title'] == pt.index[i[0]]]
-        item.extend(list(temp_df.drop_duplicates('Book-Title')['Book-Title'].values))
-        item.extend(list(temp_df.drop_duplicates('Book-Title')['Book-Author'].values))
-        item.extend(list(temp_df.drop_duplicates('Book-Title')['Image-URL-M'].values))
-
-        data.append(item)
+        title = pt.index[i[0]]
+        if title in book_info_lookup:
+            info = book_info_lookup[title]
+            data.append([info['title'], info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
 
     return render_template('recommend.html', data=data, matched_title=user_input, mode=used_mode,
                            ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
