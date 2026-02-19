@@ -489,6 +489,41 @@
             letter-spacing: 0.5px;
         }
 
+        /* XAI Explanation bullets */
+        .xai-reasons {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .xai-reasons .xai-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #00e68a;
+            margin-bottom: 5px;
+        }
+
+        .xai-reasons ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .xai-reasons li {
+            font-size: 11px;
+            color: #aab;
+            padding: 2px 0;
+            line-height: 1.4;
+        }
+
+        .xai-reasons li:first-child {
+            color: #dde;
+        }
+
         .genre-chips {
             display: flex;
             flex-wrap: wrap;
@@ -561,6 +596,7 @@
             <li><a href="/">Home</a></li>
             <li><a href="/recommend" class="active">Recommend</a></li>
             <li><a href="/mood">Mood</a></li>
+            <li><a href="/multimodal">Multi-Modal</a></li>
             <li><a href="#contact">Contact</a></li>
         </ul>
     </nav>
@@ -641,6 +677,16 @@
             </div>
             <div class="result-title">{{i[0]}}</div>
             <div class="result-author">{{i[1]}}</div>
+            {% if i[3] is defined and i[3] %}
+            <div class="xai-reasons">
+                <div class="xai-label">Why recommended</div>
+                <ul>
+                    {% for reason in i[3] %}
+                    <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import pickle
 import numpy as np
 import os
 import random
+import json
 from difflib import get_close_matches
+from cover_analyzer import analyze_cover
 
 with open('popular.pkl', 'rb') as f:
     popular_df = pickle.load(f)
@@ -81,6 +83,10 @@ if genre_available:
     print(f"✅ Genre index cache built for {len(genre_index_cache)} genres")
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'bookify-secret-key-2026')
+
+# In-memory reading history (per-session fallback; primary storage is localStorage on client)
+reading_history = {}
 
 
 def detect_genre(query):
@@ -101,8 +107,10 @@ def detect_genre(query):
     return None
 
 
-def get_genre_recommendations(genre_name, mode='classic', count=8):
-    """Get top books from a genre, ranked by genre centrality (vectorized)."""
+def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons=None):
+    """Get top books from a genre, ranked by genre centrality (vectorized).
+    Returns (data, genre_name) where data items are [title, author, image, explanations].
+    """
     if genre_name not in genre_index_cache:
         return [], genre_name
 
@@ -117,23 +125,37 @@ def get_genre_recommendations(genre_name, mode='classic', count=8):
         sim = similarity_scores
     
     # Vectorized: get the submatrix for genre books and compute mean similarity
-    # sim_sub[i, j] = similarity between genre_book_i and genre_book_j
     sim_sub = sim[np.ix_(genre_indices, genre_indices)].copy()
-    # Average similarity to other genre books (exclude self-similarity on diagonal)
     np.fill_diagonal(sim_sub, 0)
     n = len(genre_indices)
     centrality = sim_sub.sum(axis=1) / max(n - 1, 1)
+    max_centrality = centrality.max() if centrality.max() > 0 else 1
 
     # Sort by centrality descending
     ranked = np.argsort(centrality)[::-1]
 
+    genre_total = len(genre_books.get(genre_name, []))
+
     data = []
-    for rank_pos in ranked[:count]:
+    for rank_num, rank_pos in enumerate(ranked[:count]):
         idx = genre_indices[rank_pos]
         title = pt.index[idx]
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            data.append([title, info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
+            image = info['image']['image'] if isinstance(info['image'], dict) else info['image']
+
+            # Build explanations
+            reasons = []
+            if extra_reasons:
+                reasons.extend(extra_reasons)
+            reasons.append(f"📂 Top-ranked in {genre_name} ({genre_total:,} books)")
+            score_pct = centrality[rank_pos] / max_centrality if max_centrality > 0 else 0
+            if score_pct > 0.7:
+                reasons.append(f"🔥 High relevance score ({score_pct:.0%})")
+            elif score_pct > 0.4:
+                reasons.append(f"⭐ Good relevance score ({score_pct:.0%})")
+
+            data.append([title, info['author'], image, reasons])
 
     return data, genre_name
 
@@ -176,18 +198,21 @@ def mood_recommend():
 
     genres = EMOTION_GENRES.get(emotion, EMOTION_GENRES['neutral'])
     
-    # Gather recommendations from each mapped genre
+    # Gather recommendations from each mapped genre with XAI
     all_data = []
+    seen = set()
     for genre_name in genres:
-        recs, _ = get_genre_recommendations(genre_name, mode, count=4)
+        mood_reason = f"😊 Recommended for your {emotion} mood"
+        recs, _ = get_genre_recommendations(genre_name, mode, count=4, extra_reasons=[mood_reason])
         for book in recs:
-            if book not in all_data:
+            if book[0] not in seen:
+                seen.add(book[0])
                 all_data.append(book)
 
     return jsonify({
         'emotion': emotion,
         'genres': genres,
-        'books': all_data[:12],  # cap at 12 results
+        'books': all_data[:12],
     })
 
 @app.route('/autocomplete')
@@ -230,7 +255,6 @@ def recommend():
     mode = request.form.get('mode', 'classic')  # 'classic' or 'ai'
 
     # Check if user typed a genre
-    # First check if it was a genre autocomplete selection
     if user_input.startswith('📂 Genre: '):
         genre_name = user_input.replace('📂 Genre: ', '').strip()
         if genre_name in genre_books:
@@ -251,10 +275,9 @@ def recommend():
                                ncf_available=ncf_available, genre_available=genre_available,
                                all_genres=all_genres, genre_count=len(genre_books.get(detected_genre, [])))
 
-    # ── Existing book title search logic ──
+    # ── Book title search logic ──
     matches = np.where(pt.index == user_input)[0]
 
-    # If no exact match, try fuzzy matching
     if len(matches) == 0:
         close = get_close_matches(user_input, all_titles, n=1, cutoff=0.4)
         if close:
@@ -266,6 +289,8 @@ def recommend():
                                ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
 
     index = matches[0]
+    input_genres = genre_map.get(user_input, []) if genre_available else []
+    input_author = book_info_lookup.get(user_input, {}).get('author', '') if user_input in book_info_lookup else ''
 
     # Choose similarity source based on mode
     if mode == 'ai' and ncf_available:
@@ -280,12 +305,212 @@ def recommend():
     data = []
     for i in similar_items:
         title = pt.index[i[0]]
+        sim_score = float(i[1])
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            data.append([title, info['author'], info['image']['image'] if isinstance(info['image'], dict) else info['image']])
+            image = info['image']['image'] if isinstance(info['image'], dict) else info['image']
+
+            # Build XAI explanations
+            reasons = []
+            reasons.append(f"📖 Similar to {user_input} ({sim_score:.0%} match)")
+
+            # Shared genres
+            rec_genres = genre_map.get(title, []) if genre_available else []
+            shared = set(input_genres) & set(rec_genres)
+            shared.discard('Fiction')  # skip generic
+            if shared:
+                reasons.append(f"📂 Shares genre: {', '.join(sorted(shared))}")
+
+            # Same author
+            if input_author and info.get('author', '') == input_author:
+                reasons.append(f"✍️ Same author: {input_author}")
+
+            # Popularity signal
+            if title in popular_df['Book-Title'].values:
+                reasons.append("🔥 Popular among readers")
+
+            data.append([title, info['author'], image, reasons])
 
     return render_template('recommend.html', data=data, matched_title=user_input, mode=used_mode,
                            ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
+
+
+# ══════════════════════════════════════════════════════════════════
+# MULTI-MODAL RECOMMENDATION SYSTEM
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/multimodal')
+def multimodal_ui():
+    return render_template('multimodal.html', ncf_available=ncf_available,
+                           genre_available=genre_available, all_genres=all_genres)
+
+
+@app.route('/analyze_cover', methods=['POST'])
+def analyze_cover_route():
+    """Analyze a book cover image and return genre predictions."""
+    data = request.get_json()
+    image_url = data.get('image_url', '').strip()
+    if not image_url:
+        return jsonify({'error': 'No image URL provided', 'genres': [], 'palette': []})
+
+    result = analyze_cover(image_url)
+    return jsonify(result)
+
+
+@app.route('/voice_search', methods=['POST'])
+def voice_search():
+    """Process speech-to-text input and return book/genre matches."""
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    if not text:
+        return jsonify({'matches': [], 'genre': None})
+
+    # Check for genre
+    detected = detect_genre(text)
+    if detected:
+        return jsonify({'matches': [], 'genre': detected})
+
+    # Fuzzy match book titles
+    close = get_close_matches(text, all_titles, n=5, cutoff=0.35)
+    # Also try substring match
+    substr = [t for t in all_titles if text.lower() in t.lower()][:5]
+    combined = list(dict.fromkeys(close + substr))[:8]  # deduplicate, keep order
+
+    return jsonify({'matches': combined, 'genre': None})
+
+
+@app.route('/history', methods=['GET', 'POST'])
+def history_route():
+    """GET: return reading history genres. POST: add a book to history."""
+    if request.method == 'POST':
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        if title:
+            hist = session.get('history', [])
+            if title not in hist:
+                hist.append(title)
+                hist = hist[-20:]  # keep last 20
+                session['history'] = hist
+            # Return genres for this title
+            genres = genre_map.get(title, []) if genre_available else []
+            return jsonify({'status': 'added', 'title': title, 'genres': genres})
+        return jsonify({'status': 'error', 'message': 'No title provided'})
+
+    # GET: return history with genre info
+    hist = session.get('history', [])
+    history_data = []
+    for title in hist:
+        genres = genre_map.get(title, []) if genre_available else []
+        history_data.append({'title': title, 'genres': genres})
+    return jsonify({'history': history_data})
+
+
+@app.route('/multimodal_recommend', methods=['POST'])
+def multimodal_recommend():
+    """
+    Multi-modal fusion endpoint.
+    Accepts JSON with optional keys: text, image_genres, emotion, voice_text, history_genres
+    Each modality contributes genre votes; results are fused and deduplicated.
+    """
+    data = request.get_json()
+    mode = data.get('mode', 'classic')
+
+    genre_votes = {}  # genre → total score
+    active_modalities = 0
+
+    # ── 1. Text modality ──
+    text_input = data.get('text', '').strip()
+    if text_input:
+        active_modalities += 1
+        detected = detect_genre(text_input)
+        if detected:
+            genre_votes[detected] = genre_votes.get(detected, 0) + 1.0
+        else:
+            # Find book, get its genres
+            matches = np.where(pt.index == text_input)[0]
+            if len(matches) == 0:
+                close = get_close_matches(text_input, all_titles, n=1, cutoff=0.4)
+                if close:
+                    text_input = close[0]
+                    matches = np.where(pt.index == text_input)[0]
+            if len(matches) > 0 and genre_available:
+                book_genres = genre_map.get(text_input, [])
+                for g in book_genres:
+                    genre_votes[g] = genre_votes.get(g, 0) + 0.8
+
+    # ── 2. Image modality (cover analysis results) ──
+    image_genres = data.get('image_genres', [])
+    if image_genres:
+        active_modalities += 1
+        for item in image_genres:
+            g = item[0] if isinstance(item, (list, tuple)) else item
+            s = item[1] if isinstance(item, (list, tuple)) and len(item) > 1 else 0.7
+            if g in genre_books or g in genre_lookup.values() or g in [v for v in genre_aliases.values()]:
+                genre_votes[g] = genre_votes.get(g, 0) + float(s)
+
+    # ── 3. Voice modality (treated same as text) ──
+    voice_text = data.get('voice_text', '').strip()
+    if voice_text:
+        active_modalities += 1
+        detected = detect_genre(voice_text)
+        if detected:
+            genre_votes[detected] = genre_votes.get(detected, 0) + 1.0
+        else:
+            close = get_close_matches(voice_text, all_titles, n=1, cutoff=0.4)
+            if close and genre_available:
+                book_genres = genre_map.get(close[0], [])
+                for g in book_genres:
+                    genre_votes[g] = genre_votes.get(g, 0) + 0.8
+
+    # ── 4. Emotion modality ──
+    emotion = data.get('emotion', '').strip().lower()
+    if emotion and emotion in EMOTION_GENRES:
+        active_modalities += 1
+        for g in EMOTION_GENRES[emotion]:
+            genre_votes[g] = genre_votes.get(g, 0) + 0.9
+
+    # ── 5. History modality ──
+    history_genres = data.get('history_genres', [])
+    if history_genres:
+        active_modalities += 1
+        for g in history_genres:
+            genre_votes[g] = genre_votes.get(g, 0) + 0.5
+
+    # ── Fusion: get recommendations from top-scoring genres ──
+    if not genre_votes:
+        return jsonify({'books': [], 'genres_used': [], 'modalities': 0,
+                        'error': 'No input provided. Enable at least one modality.'})
+
+    # Sort genres by vote score
+    sorted_genres = sorted(genre_votes.items(), key=lambda x: x[1], reverse=True)
+    top_genres = [g for g, s in sorted_genres[:4]]  # top 4 genres
+
+    # Build modality explanation
+    modality_names = []
+    if text_input: modality_names.append('text search')
+    if image_genres: modality_names.append('cover analysis')
+    if voice_text: modality_names.append('voice input')
+    if emotion: modality_names.append('emotion detection')
+    if history_genres: modality_names.append('reading history')
+    modality_reason = f"🔗 Matched via {' + '.join(modality_names)}" if modality_names else ''
+
+    all_books = []
+    seen_titles = set()
+    for gname in top_genres:
+        extra = [modality_reason] if modality_reason else None
+        recs, _ = get_genre_recommendations(gname, mode, count=6, extra_reasons=extra)
+        for book in recs:
+            if book[0] not in seen_titles:
+                seen_titles.add(book[0])
+                all_books.append(book)
+
+    return jsonify({
+        'books': all_books[:12],
+        'genres_used': top_genres,
+        'genre_scores': dict(sorted_genres[:8]),
+        'modalities': active_modalities,
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

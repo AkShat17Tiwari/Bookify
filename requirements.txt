@@ -3,3 +3,5 @@ numpy
 pandas
 gunicorn
 scikit-learn
+Pillow
+requests
