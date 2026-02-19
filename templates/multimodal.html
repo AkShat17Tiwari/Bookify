@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — Multi-Modal Recommendations</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* ---- Navbar ---- */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            height: 64px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .nav-brand {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #aaa;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 18px;
+            border-radius: 8px;
+            transition: all 0.25s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* ---- Hero ---- */
+        .hero {
+            text-align: center;
+            padding: 50px 20px 30px;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(236, 72, 153, 0.1), rgba(167, 139, 250, 0.08), transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 44px;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 17px;
+            color: #666;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        /* ---- Modality Grid ---- */
+        .modal-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px 30px 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .modal-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 28px;
+            transition: all 0.35s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-card.active-card {
+            border-color: rgba(0, 230, 138, 0.25);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .modal-card.active-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00e68a, #00b4d8);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-title .icon {
+            font-size: 24px;
+        }
+
+        .modal-title h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #f0f0f0;
+        }
+
+        .modal-desc {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            display: inline-block;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #333;
+            border-radius: 24px;
+            transition: all 0.3s;
+        }
+
+        .switch .slider::before {
+            content: '';
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #888;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .switch input:checked+.slider {
+            background: rgba(0, 230, 138, 0.4);
+        }
+
+        .switch input:checked+.slider::before {
+            transform: translateX(20px);
+            background: #00e68a;
+        }
+
+        /* Input styles */
+        .modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .modal-input::placeholder {
+            color: #555;
+        }
+
+        .modal-input:focus {
+            border-color: rgba(0, 230, 138, 0.4);
+            box-shadow: 0 0 0 3px rgba(0, 230, 138, 0.06);
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .modal-btn-primary {
+            color: #0a0a0f;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+        }
+
+        .modal-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 230, 138, 0.15);
+        }
+
+        .modal-btn-secondary {
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .modal-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Status badges */
+        .modal-status {
+            display: inline-block;
+            padding: 4px 12px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 16px;
+            letter-spacing: 0.3px;
+            animation: fadeUp 0.3s ease;
+        }
+
+        .status-ready {
+            color: #00e68a;
+            background: rgba(0, 230, 138, 0.1);
+            border: 1px solid rgba(0, 230, 138, 0.2);
+        }
+
+        .status-working {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .status-error {
+            color: #f87171;
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        /* Palette display */
+        .palette-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .palette-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .genre-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .genre-tag {
+            padding: 3px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 12px;
+            background: rgba(167, 139, 250, 0.12);
+            border: 1px solid rgba(167, 139, 250, 0.25);
+            color: #a78bfa;
+        }
+
+        /* Camera mini */
+        .cam-mini {
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #111;
+            position: relative;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .cam-mini video,
+        .cam-mini canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cam-mini #mmSnapshot {
+            z-index: 2;
+            display: none;
+        }
+
+        .cam-mini-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #444;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .cam-mini-placeholder .icon {
+            font-size: 36px;
+        }
+
+        /* Reading history */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .history-item .title {
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        .history-item .genres {
+            font-size: 11px;
+            color: #a78bfa;
+        }
+
+        .history-empty {
+            color: #444;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Voice animation */
+        .voice-waves {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            height: 30px;
+            margin-top: 10px;
+        }
+
+        .voice-wave-bar {
+            width: 4px;
+            background: #00e68a;
+            border-radius: 2px;
+            animation: waveAnim 0.6s ease-in-out infinite alternate;
+        }
+
+        .voice-wave-bar:nth-child(1) {
+            height: 8px;
+            animation-delay: 0s;
+        }
+
+        .voice-wave-bar:nth-child(2) {
+            height: 16px;
+            animation-delay: 0.1s;
+        }
+
+        .voice-wave-bar:nth-child(3) {
+            height: 24px;
+            animation-delay: 0.2s;
+        }
+
+        .voice-wave-bar:nth-child(4) {
+            height: 16px;
+            animation-delay: 0.3s;
+        }
+
+        .voice-wave-bar:nth-child(5) {
+            height: 8px;
+            animation-delay: 0.4s;
+        }
+
+        @keyframes waveAnim {
+            to {
+                height: 28px;
+            }
+        }
+
+        /* ---- CTA Section ---- */
+        .cta-section {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 10px 30px 40px;
+            text-align: center;
+        }
+
+        .active-count {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .active-count span {
+            color: #00e68a;
+            font-weight: 700;
+        }
+
+        .cta-btn {
+            display: inline-block;
+            padding: 18px 48px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            color: #0a0a0f;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 0.3px;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 48px rgba(0, 230, 138, 0.25);
+        }
+
+        .cta-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* ---- Mode Toggle ---- */
+        .mode-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin: 12px 0 20px;
+        }
+
+        .mode-toggle-row label {
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .ml-classic {
+            color: #00e68a;
+        }
+
+        .ml-ai {
+            color: #555;
+        }
+
+        .toggle-mini {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .toggle-mini input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-mini .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(0, 230, 138, 0.3);
+            border-radius: 24px;
+            transition: all 0.3s;
+        }
+
+        .toggle-mini .slider::before {
+            content: '';
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .toggle-mini input:checked+.slider {
+            background: rgba(167, 139, 250, 0.4);
+        }
+
+        .toggle-mini input:checked+.slider::before {
+            transform: translateX(20px);
+        }
+
+        /* Fusion info */
+        .fusion-info {
+            max-width: 800px;
+            margin: 0 auto 20px;
+            padding: 16px 24px;
+            background: rgba(0, 230, 138, 0.05);
+            border: 1px solid rgba(0, 230, 138, 0.12);
+            border-radius: 14px;
+            text-align: center;
+            animation: fadeUp 0.4s ease;
+            display: none;
+        }
+
+        .fusion-info .modality-count {
+            font-size: 15px;
+            color: #ccc;
+            margin-bottom: 8px;
+        }
+
+        .fusion-info .modality-count strong {
+            color: #00e68a;
+        }
+
+        .fusion-genres {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .fusion-genre-tag {
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 14px;
+            background: rgba(0, 230, 138, 0.1);
+            border: 1px solid rgba(0, 230, 138, 0.2);
+            color: #00e68a;
+        }
+
+        /* ---- Results Grid ---- */
+        .results-section {
+            display: none;
+        }
+
+        .results-label {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #555;
+            margin: 10px 0 30px;
+        }
+
+        .results-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 30px 80px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 28px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeUp 0.5s forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0, 230, 138, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 230, 138, 0.08), 0 0 0 1px rgba(0, 230, 138, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .result-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00e68a, #a78bfa);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .result-card:hover::after {
+            opacity: 1;
+        }
+
+        /* XAI Explanation bullets */
+        .xai-reasons {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .xai-reasons .xai-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #00e68a;
+            margin-bottom: 5px;
+        }
+
+        .xai-reasons ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .xai-reasons li {
+            font-size: 11px;
+            color: #aab;
+            padding: 2px 0;
+            line-height: 1.4;
+        }
+
+        .xai-reasons li:first-child {
+            color: #dde;
+        }
+
+        .result-img-wrapper {
+            width: 100%;
+            height: 280px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: #111;
+        }
+
+        .result-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .result-card:hover .result-img-wrapper img {
+            transform: scale(1.06);
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f0f0f0;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .result-author {
+            font-size: 13px;
+            color: #00b4d8;
+            font-weight: 500;
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 230, 138, 0.15);
+            border: 1px solid rgba(0, 230, 138, 0.3);
+            color: #00e68a;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 8px;
+            z-index: 2;
+        }
+
+        /* ---- Animations ---- */
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 20px;
+            }
+
+            .hero h1 {
+                font-size: 30px;
+            }
+
+            .modal-grid {
+                padding: 10px 16px 20px;
+                grid-template-columns: 1fr;
+            }
+
+            .results-grid {
+                padding: 0 16px 60px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="/">📚 BOOKIFY</a>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/recommend">Recommend</a></li>
+            <li><a href="/mood">Mood</a></li>
+            <li><a href="/multimodal" class="active">Multi-Modal</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero">
+        <h1>🧠 Multi-Modal Engine</h1>
+        <p>Combine text, images, voice, emotions, and your reading history for hyper-personalized book recommendations
+        </p>
+    </section>
+
+    <!-- ── Modality Cards ── -->
+    <div class="modal-grid">
+
+        <!-- 1. TEXT -->
+        <div class="modal-card active-card" id="cardText">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">📝</span>
+                    <h3>Text Input</h3>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" checked id="toggleText" onchange="updateActiveCount()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p class="modal-desc">Search by book title or genre keyword</p>
+            <input type="text" class="modal-input" id="textInput" placeholder="e.g. Harry Potter, romance, sci-fi...">
+            <div id="textAutocomplete" style="position:relative;">
+                <div id="textSuggestions"
+                    style="position:absolute;top:4px;left:0;right:0;z-index:50;background:rgba(20,20,30,0.95);
+                           border-radius:10px;border:1px solid rgba(255,255,255,0.08);display:none;max-height:200px;overflow-y:auto;backdrop-filter:blur(20px);">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. IMAGE / COVER -->
+        <div class="modal-card" id="cardImage">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">📸</span>
+                    <h3>Cover Analysis</h3>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleImage" onchange="updateActiveCount()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p class="modal-desc">Paste a book cover image URL — we'll analyze its colors to predict genres</p>
+            <input type="text" class="modal-input" id="coverUrl"
+                placeholder="https://images-na.ssl-images-amazon.com/...">
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="modal-btn modal-btn-primary" id="btnAnalyzeCover" onclick="analyzeCover()">🔍 Analyze
+                    Cover</button>
+            </div>
+            <div id="coverResult"></div>
+        </div>
+
+        <!-- 3. VOICE -->
+        <div class="modal-card" id="cardVoice">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">🎙️</span>
+                    <h3>Voice Input</h3>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleVoice" onchange="updateActiveCount()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p class="modal-desc">Speak a book name or genre — uses your browser's speech recognition</p>
+            <button class="modal-btn modal-btn-primary" id="btnVoice" onclick="startVoice()">🎤 Start
+                Listening</button>
+            <div id="voiceWaves" style="display:none;">
+                <div class="voice-waves">
+                    <div class="voice-wave-bar"></div>
+                    <div class="voice-wave-bar"></div>
+                    <div class="voice-wave-bar"></div>
+                    <div class="voice-wave-bar"></div>
+                    <div class="voice-wave-bar"></div>
+                </div>
+            </div>
+            <div id="voiceResult"></div>
+        </div>
+
+        <!-- 4. EMOTION -->
+        <div class="modal-card" id="cardEmotion">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">😊</span>
+                    <h3>Emotion Detection</h3>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleEmotion" onchange="updateActiveCount()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p class="modal-desc">Capture your expression via webcam to detect your current mood</p>
+            <div class="cam-mini" id="emotionCamWrapper">
+                <div class="cam-mini-placeholder" id="emotionPlaceholder">
+                    <span class="icon">📷</span>
+                    <span>Click Start Camera</span>
+                </div>
+                <video id="mmVideo" autoplay muted playsinline style="display:none;"></video>
+                <canvas id="mmSnapshot"></canvas>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="modal-btn modal-btn-secondary" id="btnEmotionStart" onclick="startEmotionCam()">📷 Start
+                    Camera</button>
+                <button class="modal-btn modal-btn-primary" id="btnEmotionCapture" onclick="captureEmotion()"
+                    disabled>📸 Capture</button>
+                <button class="modal-btn modal-btn-primary" id="btnEmotionAnalyze" onclick="analyzeEmotion()" disabled
+                    style="display:none;">🔍 Detect</button>
+            </div>
+            <div id="emotionResult"></div>
+        </div>
+
+        <!-- 5. READING HISTORY -->
+        <div class="modal-card" id="cardHistory">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">📚</span>
+                    <h3>Reading History</h3>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggleHistory" onchange="updateActiveCount()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p class="modal-desc">Books you've previously explored — genres are auto-detected</p>
+            <div id="historyContainer">
+                <div class="history-empty">No reading history yet. Browse books on the Home or Recommend pages.</div>
+            </div>
+            <button class="modal-btn modal-btn-secondary" onclick="clearHistory()" style="margin-top:10px;">🗑️ Clear
+                History</button>
+        </div>
+
+    </div>
+
+    <!-- ── CTA ── -->
+    <div class="cta-section">
+        <p class="active-count"><span id="activeCountNum">1</span> modality active</p>
+
+        {% if ncf_available %}
+        <div class="mode-toggle-row">
+            <label class="ml-classic" id="mlLabelClassic" for="mlModeToggle">📊 Classic</label>
+            <label class="toggle-mini">
+                <input type="checkbox" id="mlModeToggle">
+                <span class="slider"></span>
+            </label>
+            <label class="ml-ai" id="mlLabelAI" for="mlModeToggle">🤖 AI-Powered</label>
+        </div>
+        {% endif %}
+
+        <button class="cta-btn" id="btnFuse" onclick="getMultiModalRecs()">🚀 Get Fused Recommendations</button>
+    </div>
+
+    <!-- ── Fusion Results ── -->
+    <div class="fusion-info" id="fusionInfo">
+        <p class="modality-count">Fused <strong id="fusionModCount">0</strong> modalities</p>
+        <div class="fusion-genres" id="fusionGenres"></div>
+    </div>
+
+    <div class="results-section" id="resultsSection">
+        <p class="results-label">Multi-Modal Recommendations</p>
+        <div class="results-grid" id="resultsGrid"></div>
+    </div>
+
+    <!-- ── Contact ── -->
+    <footer id="contact" style="
+        max-width: 600px; margin: 60px auto 0; padding: 48px 32px 56px;
+        text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    ">
+        <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 6px;
+            background: linear-gradient(135deg,#00e68a,#00b4d8);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;">Contact</h2>
+        <p style="color:#555; font-size:13px; margin-bottom:28px; letter-spacing:0.5px;">Get in touch</p>
+        <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">👤</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Owner</div>
+                    <div style="font-size:15px; font-weight:600; color:#f0f0f0;">AKSHAT TIWARI</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📞</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Phone</div>
+                    <a href="tel:7080046904"
+                        style="font-size:15px; font-weight:600; color:#00e68a; text-decoration:none;">7080046904</a>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
+                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+                border-radius:12px; min-width:280px;">
+                <span style="font-size:20px;">📧</span>
+                <div style="text-align:left;">
+                    <div
+                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
+                        Email</div>
+                    <a href="mailto:akshatr147@gmail.com"
+                        style="font-size:15px; font-weight:600; color:#00b4d8; text-decoration:none;">akshatr147@gmail.com</a>
+                </div>
+            </div>
+        </div>
+        <p style="color:#333; font-size:12px; margin-top:32px;">© 2026 BOOKIFY. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // ════════════════════════════════════════════════════════════
+        // STATE
+        // ════════════════════════════════════════════════════════════
+        let coverGenres = [];       // from image analysis
+        let detectedEmotion = '';   // from face analysis
+        let voiceText = '';         // from speech recognition
+        let historyGenres = [];     // from reading history
+        let mmStream = null;
+
+        // ════════════════════════════════════════════════════════════
+        // ACTIVE COUNT
+        // ════════════════════════════════════════════════════════════
+        function updateActiveCount() {
+            const toggles = ['toggleText', 'toggleImage', 'toggleVoice', 'toggleEmotion', 'toggleHistory'];
+            let count = 0;
+            toggles.forEach(id => {
+                const el = document.getElementById(id);
+                const card = el.closest('.modal-card');
+                if (el.checked) {
+                    count++;
+                    card.classList.add('active-card');
+                } else {
+                    card.classList.remove('active-card');
+                }
+            });
+            document.getElementById('activeCountNum').textContent = count;
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // 1. TEXT — Autocomplete
+        // ════════════════════════════════════════════════════════════
+        (function () {
+            const input = document.getElementById('textInput');
+            const sugBox = document.getElementById('textSuggestions');
+            let debounce;
+
+            input.addEventListener('input', function () {
+                clearTimeout(debounce);
+                const q = this.value.trim();
+                if (q.length < 2) { sugBox.style.display = 'none'; return; }
+
+                debounce = setTimeout(() => {
+                    fetch('/autocomplete?q=' + encodeURIComponent(q))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.length) { sugBox.style.display = 'none'; return; }
+                            sugBox.innerHTML = data.map(t =>
+                                `<div style="padding:10px 16px;color:#ccc;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s;"
+                                      onmouseover="this.style.background='rgba(0,230,138,0.1)';this.style.color='#fff'"
+                                      onmouseout="this.style.background='none';this.style.color='#ccc'"
+                                      onclick="document.getElementById('textInput').value=this.textContent;document.getElementById('textSuggestions').style.display='none';"
+                                >${t}</div>`
+                            ).join('');
+                            sugBox.style.display = 'block';
+                        });
+                }, 200);
+            });
+
+            document.addEventListener('click', e => {
+                if (!e.target.closest('#textAutocomplete') && e.target !== input) {
+                    sugBox.style.display = 'none';
+                }
+            });
+        })();
+
+        // ════════════════════════════════════════════════════════════
+        // 2. COVER ANALYSIS
+        // ════════════════════════════════════════════════════════════
+        function analyzeCover() {
+            const url = document.getElementById('coverUrl').value.trim();
+            if (!url) return;
+            const resultDiv = document.getElementById('coverResult');
+            resultDiv.innerHTML = '<span class="modal-status status-working loading-pulse">Analyzing cover...</span>';
+
+            fetch('/analyze_cover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_url: url })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        resultDiv.innerHTML = `<span class="modal-status status-error">${data.error}</span>`;
+                        return;
+                    }
+                    coverGenres = data.genres;
+                    // Enable toggle
+                    document.getElementById('toggleImage').checked = true;
+                    updateActiveCount();
+
+                    let html = '<div class="palette-row">';
+                    data.palette.forEach(c => {
+                        html += `<div class="palette-swatch" style="background:${c}" title="${c}"></div>`;
+                    });
+                    html += '</div><div class="genre-tags">';
+                    data.genres.forEach(([g, s]) => {
+                        html += `<span class="genre-tag">${g} (${Math.round(s * 100)}%)</span>`;
+                    });
+                    html += '</div>';
+                    html += '<span class="modal-status status-ready" style="margin-top:8px;">✓ Analysis complete</span>';
+                    resultDiv.innerHTML = html;
+                })
+                .catch(() => {
+                    resultDiv.innerHTML = '<span class="modal-status status-error">Failed to analyze cover</span>';
+                });
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // 3. VOICE
+        // ════════════════════════════════════════════════════════════
+        function startVoice() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                document.getElementById('voiceResult').innerHTML =
+                    '<span class="modal-status status-error">Speech recognition not supported in this browser</span>';
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            const waves = document.getElementById('voiceWaves');
+            const resultDiv = document.getElementById('voiceResult');
+            const btn = document.getElementById('btnVoice');
+
+            waves.style.display = 'block';
+            btn.disabled = true;
+            btn.textContent = '🎤 Listening...';
+            resultDiv.innerHTML = '<span class="modal-status status-working">Listening...</span>';
+
+            recognition.start();
+
+            recognition.onresult = function (e) {
+                voiceText = e.results[0][0].transcript;
+                waves.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🎤 Start Listening';
+
+                document.getElementById('toggleVoice').checked = true;
+                updateActiveCount();
+
+                resultDiv.innerHTML = `
+                    <div style="margin-top:10px;padding:10px 14px;background:rgba(0,230,138,0.06);border:1px solid rgba(0,230,138,0.15);border-radius:10px;font-size:14px;color:#ccc;">
+                        🗣️ "<strong style="color:#00e68a;">${voiceText}</strong>"
+                    </div>
+                    <span class="modal-status status-ready" style="margin-top:8px;">✓ Speech captured</span>
+                `;
+            };
+
+            recognition.onerror = function (e) {
+                waves.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🎤 Start Listening';
+                resultDiv.innerHTML = `<span class="modal-status status-error">Error: ${e.error}</span>`;
+            };
+
+            recognition.onend = function () {
+                waves.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🎤 Start Listening';
+            };
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // 4. EMOTION (face-api.js)
+        // ════════════════════════════════════════════════════════════
+        let faceModelsLoaded = false;
+
+        async function loadFaceModels() {
+            if (faceModelsLoaded) return;
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+            ]);
+            faceModelsLoaded = true;
+        }
+
+        async function startEmotionCam() {
+            try {
+                mmStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                const video = document.getElementById('mmVideo');
+                video.srcObject = mmStream;
+                video.style.display = 'block';
+                document.getElementById('emotionPlaceholder').style.display = 'none';
+                document.getElementById('btnEmotionCapture').disabled = false;
+                document.getElementById('btnEmotionStart').textContent = '📷 Restart';
+                document.getElementById('mmSnapshot').style.display = 'none';
+                document.getElementById('btnEmotionAnalyze').style.display = 'none';
+            } catch (e) {
+                document.getElementById('emotionResult').innerHTML =
+                    '<span class="modal-status status-error">Camera access denied</span>';
+            }
+        }
+
+        function captureEmotion() {
+            const video = document.getElementById('mmVideo');
+            const canvas = document.getElementById('mmSnapshot');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            canvas.style.display = 'block';
+            video.style.display = 'none';
+            if (mmStream) mmStream.getTracks().forEach(t => t.stop());
+            document.getElementById('btnEmotionCapture').disabled = true;
+            document.getElementById('btnEmotionAnalyze').style.display = '';
+            document.getElementById('btnEmotionAnalyze').disabled = false;
+        }
+
+        async function analyzeEmotion() {
+            const resultDiv = document.getElementById('emotionResult');
+            resultDiv.innerHTML = '<span class="modal-status status-working loading-pulse">Loading AI models & analyzing...</span>';
+
+            try {
+                await loadFaceModels();
+                const canvas = document.getElementById('mmSnapshot');
+                const detections = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceExpressions();
+
+                if (!detections) {
+                    resultDiv.innerHTML = '<span class="modal-status status-error">No face detected — try again</span>';
+                    return;
+                }
+
+                const exprs = detections.expressions;
+                const sorted = Object.entries(exprs).sort((a, b) => b[1] - a[1]);
+                detectedEmotion = sorted[0][0];
+                const confidence = Math.round(sorted[0][1] * 100);
+
+                const emojiMap = {
+                    happy: '😊', sad: '😢', angry: '😠', fearful: '😨',
+                    disgusted: '🤢', surprised: '😲', neutral: '😐'
+                };
+
+                document.getElementById('toggleEmotion').checked = true;
+                updateActiveCount();
+
+                resultDiv.innerHTML = `
+                    <div style="margin-top:10px;text-align:center;">
+                        <span style="font-size:36px;">${emojiMap[detectedEmotion] || '🤔'}</span>
+                        <div style="font-size:18px;font-weight:700;color:#a78bfa;text-transform:capitalize;margin:4px 0;">
+                            ${detectedEmotion}
+                        </div>
+                        <div style="font-size:13px;color:#666;">Confidence: ${confidence}%</div>
+                    </div>
+                    <span class="modal-status status-ready" style="margin-top:8px;">✓ Emotion detected</span>
+                `;
+            } catch (e) {
+                resultDiv.innerHTML = '<span class="modal-status status-error">Analysis failed</span>';
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // 5. READING HISTORY
+        // ════════════════════════════════════════════════════════════
+        function loadHistory() {
+            const hist = JSON.parse(localStorage.getItem('bookify_history') || '[]');
+            const container = document.getElementById('historyContainer');
+
+            if (hist.length === 0) {
+                container.innerHTML = '<div class="history-empty">No reading history yet. Browse books on the Home or Recommend pages.</div>';
+                return;
+            }
+
+            // Compute genres from history
+            historyGenres = [];
+            let html = '<div class="history-list">';
+            hist.forEach(item => {
+                html += `<div class="history-item">
+                    <span class="title">${item.title}</span>
+                    <span class="genres">${(item.genres || []).join(', ') || '—'}</span>
+                </div>`;
+                (item.genres || []).forEach(g => {
+                    if (!historyGenres.includes(g)) historyGenres.push(g);
+                });
+            });
+            html += '</div>';
+            container.innerHTML = html;
+
+            if (hist.length > 0) {
+                document.getElementById('toggleHistory').checked = true;
+                updateActiveCount();
+            }
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('bookify_history');
+            historyGenres = [];
+            document.getElementById('toggleHistory').checked = false;
+            updateActiveCount();
+            loadHistory();
+        }
+
+        // Add to history helper (called from other pages via localStorage)
+        function addToHistory(title, genres) {
+            const hist = JSON.parse(localStorage.getItem('bookify_history') || '[]');
+            if (hist.find(h => h.title === title)) return;
+            hist.push({ title, genres });
+            // Keep last 20
+            while (hist.length > 20) hist.shift();
+            localStorage.setItem('bookify_history', JSON.stringify(hist));
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE TOGGLE
+        // ════════════════════════════════════════════════════════════
+        (function () {
+            const toggle = document.getElementById('mlModeToggle');
+            const labelClassic = document.getElementById('mlLabelClassic');
+            const labelAI = document.getElementById('mlLabelAI');
+            if (toggle) {
+                toggle.addEventListener('change', function () {
+                    labelClassic.style.color = this.checked ? '#555' : '#00e68a';
+                    labelAI.style.color = this.checked ? '#a78bfa' : '#555';
+                });
+            }
+        })();
+
+        // ════════════════════════════════════════════════════════════
+        // FUSION — Get Multi-Modal Recommendations
+        // ════════════════════════════════════════════════════════════
+        function getMultiModalRecs() {
+            const btn = document.getElementById('btnFuse');
+            btn.disabled = true;
+            btn.textContent = '⏳ Fusing modalities...';
+
+            const mode = document.getElementById('mlModeToggle')?.checked ? 'ai' : 'classic';
+
+            const payload = { mode };
+
+            // Text
+            if (document.getElementById('toggleText').checked) {
+                const text = document.getElementById('textInput').value.trim();
+                if (text) payload.text = text;
+            }
+
+            // Image
+            if (document.getElementById('toggleImage').checked && coverGenres.length) {
+                payload.image_genres = coverGenres;
+            }
+
+            // Voice
+            if (document.getElementById('toggleVoice').checked && voiceText) {
+                payload.voice_text = voiceText;
+            }
+
+            // Emotion
+            if (document.getElementById('toggleEmotion').checked && detectedEmotion) {
+                payload.emotion = detectedEmotion;
+            }
+
+            // History
+            if (document.getElementById('toggleHistory').checked && historyGenres.length) {
+                payload.history_genres = historyGenres;
+            }
+
+            fetch('/multimodal_recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Get Fused Recommendations';
+
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    // Show fusion info
+                    const fusionInfo = document.getElementById('fusionInfo');
+                    document.getElementById('fusionModCount').textContent = data.modalities;
+                    const genresDiv = document.getElementById('fusionGenres');
+                    genresDiv.innerHTML = data.genres_used.map(g =>
+                        `<span class="fusion-genre-tag">${g}</span>`
+                    ).join('');
+                    fusionInfo.style.display = 'block';
+
+                    // Show results
+                    const resultsSection = document.getElementById('resultsSection');
+                    const grid = document.getElementById('resultsGrid');
+
+                    if (!data.books || data.books.length === 0) {
+                        grid.innerHTML = '<p style="text-align:center;color:#555;grid-column:1/-1;">No recommendations found. Try enabling more modalities.</p>';
+                    } else {
+                        grid.innerHTML = data.books.map((book, i) => {
+                            let reasonsHtml = '';
+                            if (book[3] && book[3].length > 0) {
+                                reasonsHtml = `<div class="xai-reasons">
+                                    <div class="xai-label">Why recommended</div>
+                                    <ul>${book[3].map(r => `<li>${r}</li>`).join('')}</ul>
+                                </div>`;
+                            }
+                            return `
+                            <div class="result-card" style="animation-delay: ${i * 0.1}s"
+                                 onclick="addToHistory('${book[0].replace(/'/g, "\\'")}', [])">
+                                <span class="rank-badge">#${i + 1}</span>
+                                <div class="result-img-wrapper">
+                                    <img src="${book[2]}" alt="${book[0]}" loading="lazy"
+                                        onerror="this.src='https://via.placeholder.com/200x280/1a1a2e/e0e0e0?text=No+Cover'">
+                                </div>
+                                <div class="result-title">${book[0]}</div>
+                                <div class="result-author">${book[1]}</div>
+                                ${reasonsHtml}
+                            </div>`;
+                        }).join('');
+                    }
+                    resultsSection.style.display = 'block';
+                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Get Fused Recommendations';
+                    alert('Request failed. Make sure the server is running.');
+                });
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // INIT
+        // ════════════════════════════════════════════════════════════
+        loadHistory();
+        updateActiveCount();
+    </script>
+
+</body>
+
+</html>
