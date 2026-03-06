@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import pickle
 import numpy as np
 import os
@@ -83,10 +83,141 @@ if genre_available:
     print(f"✅ Genre index cache built for {len(genre_index_cache)} genres")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'bookify-secret-key-2026')
+
+# SECURITY: Generate a cryptographically random secret key if not set in env.
+# Never use a hardcoded default in production.
+import secrets as _secrets
+app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
+
+# ── Security middleware (headers, rate limiting, CSRF, input validation) ──
+from security import init_security
+init_security(app)
+
+# ── Auth system (bcrypt, RBAC, brute-force protection) ──
+from auth import (
+    create_user, verify_user, get_user_by_email, get_user_by_google_id,
+    login_user, logout_user, get_current_user, login_required, admin_required,
+    list_users
+)
 
 # In-memory reading history (per-session fallback; primary storage is localStorage on client)
 reading_history = {}
+
+
+# ══════════════════════════════════════════════════════════════════
+# AUTH ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/login', methods=['GET', 'POST'])
+def login_page():
+    if 'user_id' in session:
+        return redirect('/')
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        next_url = request.form.get('next', '/')
+        user, error = verify_user(email, password)
+        if error:
+            return render_template('login.html', error=error, next_url=next_url, google_client_id=GOOGLE_CLIENT_ID)
+        login_user(user)
+        return redirect(next_url or '/')
+    next_url = request.args.get('next', '/')
+    return render_template('login.html', next_url=next_url, google_client_id=GOOGLE_CLIENT_ID)
+
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup_page():
+    if 'user_id' in session:
+        return redirect('/')
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+        if not name or not email or not password:
+            return render_template('signup.html', error='All fields are required.', google_client_id=GOOGLE_CLIENT_ID)
+        if len(password) < 6:
+            return render_template('signup.html', error='Password must be at least 6 characters.', google_client_id=GOOGLE_CLIENT_ID)
+        if password != confirm:
+            return render_template('signup.html', error='Passwords do not match.', google_client_id=GOOGLE_CLIENT_ID)
+        user, error = create_user(name, email, password)
+        if error:
+            return render_template('signup.html', error=error, google_client_id=GOOGLE_CLIENT_ID)
+        login_user(user)
+        return redirect('/')
+    return render_template('signup.html', google_client_id=GOOGLE_CLIENT_ID)
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect('/login')
+
+
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+
+@app.route('/google/login')
+def google_login():
+    """Redirect to login with a note if Google is not configured."""
+    if not GOOGLE_CLIENT_ID:
+        return render_template('login.html',
+            error='Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.', google_client_id=GOOGLE_CLIENT_ID)
+    # The actual Google sign-in is handled client-side via GIS JS library
+    return redirect('/login')
+
+
+@app.route('/google/callback', methods=['POST'])
+def google_callback():
+    """Verify Google ID token and log the user in."""
+    import requests as http_requests
+    token = request.form.get('credential', '')
+    if not token:
+        return redirect('/login')
+
+    # Verify token with Google
+    try:
+        resp = http_requests.get(
+            'https://oauth2.googleapis.com/tokeninfo',
+            params={'id_token': token},
+            timeout=5
+        )
+        if resp.status_code != 200:
+            return render_template('login.html', error='Google authentication failed. Please try again.', google_client_id=GOOGLE_CLIENT_ID)
+
+        info = resp.json()
+
+        # Verify the token is for our app
+        if info.get('aud') != GOOGLE_CLIENT_ID:
+            return render_template('login.html', error='Invalid Google token.', google_client_id=GOOGLE_CLIENT_ID)
+
+        email = info.get('email', '')
+        name = info.get('name', info.get('given_name', email.split('@')[0]))
+        google_id = info.get('sub', '')
+
+        if not email:
+            return render_template('login.html', error='Could not retrieve email from Google.', google_client_id=GOOGLE_CLIENT_ID)
+
+        # Check if user exists
+        existing = get_user_by_email(email)
+        if existing:
+            login_user(existing)
+            return redirect('/')
+
+        # Create new user via Google
+        user, err = create_user(name, email, google_id=google_id)
+        if err:
+            # Account exists but was created with email/password
+            existing = get_user_by_email(email)
+            if existing:
+                login_user(existing)
+                return redirect('/')
+            return render_template('login.html', error=err, google_client_id=GOOGLE_CLIENT_ID)
+
+        login_user(user)
+        return redirect('/')
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+        return render_template('login.html', error='Google authentication failed. Please try again.', google_client_id=GOOGLE_CLIENT_ID)
 
 
 def detect_genre(query):
@@ -142,7 +273,7 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
         title = pt.index[idx]
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            image = info['image']['image'] if isinstance(info['image'], dict) else info['image']
+            image = info['image']
 
             # Build explanations
             reasons = []
@@ -161,19 +292,24 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
 
 
 @app.route('/')
+@login_required
 def index():
+    user = get_current_user()
     return render_template('index.html',
                            book_name = list(popular_df['Book-Title'].values),
                            author=list(popular_df['Book-Author'].values),
                            image=list(popular_df['Image-URL-M'].values),
                            votes=list(popular_df['num_ratings'].values),
-                           rating=list(popular_df['avg_rating'].values)
+                           rating=list(popular_df['avg_rating'].values),
+                           user=user
                            )
 
 @app.route('/recommend')
+@login_required
 def recommend_ui():
+    user = get_current_user()
     return render_template('recommend.html', ncf_available=ncf_available,
-                           genre_available=genre_available, all_genres=all_genres)
+                           genre_available=genre_available, all_genres=all_genres, user=user)
 
 # ── Emotion → Genre mapping ──
 EMOTION_GENRES = {
@@ -187,10 +323,13 @@ EMOTION_GENRES = {
 }
 
 @app.route('/mood')
+@login_required
 def mood_ui():
-    return render_template('mood.html', ncf_available=ncf_available)
+    user = get_current_user()
+    return render_template('mood.html', ncf_available=ncf_available, user=user)
 
 @app.route('/mood_recommend', methods=['POST'])
+@login_required
 def mood_recommend():
     data = request.get_json()
     emotion = data.get('emotion', 'neutral').lower().strip()
@@ -216,6 +355,7 @@ def mood_recommend():
     })
 
 @app.route('/autocomplete')
+@login_required
 def autocomplete():
     """Return matching book titles and genres for the live search dropdown."""
     query = request.args.get('q', '').strip().lower()
@@ -249,7 +389,8 @@ def autocomplete():
 
     return jsonify(suggestions[:12])
 
-@app.route('/recommend_books', methods=['post'])
+@app.route('/recommend_books', methods=['POST'])
+@login_required
 def recommend():
     user_input = request.form.get('user_input', '').strip()
     mode = request.form.get('mode', 'classic')  # 'classic' or 'ai'
@@ -308,7 +449,7 @@ def recommend():
         sim_score = float(i[1])
         if title in book_info_lookup:
             info = book_info_lookup[title]
-            image = info['image']['image'] if isinstance(info['image'], dict) else info['image']
+            image = info['image']
 
             # Build XAI explanations
             reasons = []
@@ -340,12 +481,15 @@ def recommend():
 # ══════════════════════════════════════════════════════════════════
 
 @app.route('/multimodal')
+@login_required
 def multimodal_ui():
+    user = get_current_user()
     return render_template('multimodal.html', ncf_available=ncf_available,
-                           genre_available=genre_available, all_genres=all_genres)
+                           genre_available=genre_available, all_genres=all_genres, user=user)
 
 
 @app.route('/analyze_cover', methods=['POST'])
+@login_required
 def analyze_cover_route():
     """Analyze a book cover image and return genre predictions."""
     data = request.get_json()
@@ -358,6 +502,7 @@ def analyze_cover_route():
 
 
 @app.route('/voice_search', methods=['POST'])
+@login_required
 def voice_search():
     """Process speech-to-text input and return book/genre matches."""
     data = request.get_json()
@@ -380,6 +525,7 @@ def voice_search():
 
 
 @app.route('/history', methods=['GET', 'POST'])
+@login_required
 def history_route():
     """GET: return reading history genres. POST: add a book to history."""
     if request.method == 'POST':
@@ -406,6 +552,7 @@ def history_route():
 
 
 @app.route('/multimodal_recommend', methods=['POST'])
+@login_required
 def multimodal_recommend():
     """
     Multi-modal fusion endpoint.
@@ -510,6 +657,40 @@ def multimodal_recommend():
         'genre_scores': dict(sorted_genres[:8]),
         'modalities': active_modalities,
     })
+
+# ══════════════════════════════════════════════════════════════════
+# ADMIN ROUTES  (RBAC protected)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard — only accessible by users with 'admin' role."""
+    from audit_log import get_recent_events
+    user = get_current_user()
+    users = list_users(limit=50)
+    events = get_recent_events(limit=30)
+    return render_template('index.html', user=user,
+                           books=popular_df[popular_df.columns[0:1]].values.tolist())
+
+
+@app.route('/admin/users')
+@admin_required
+def admin_users_api():
+    """API: List all users (admin only)."""
+    users = list_users(limit=100)
+    # SECURITY: Never expose password hashes in API responses
+    return jsonify(users)
+
+
+@app.route('/admin/audit')
+@admin_required
+def admin_audit_api():
+    """API: Get recent security audit events (admin only)."""
+    from audit_log import get_recent_events
+    event_type = request.args.get('type')
+    events = get_recent_events(event_type=event_type, limit=100)
+    return jsonify(events)
 
 
 if __name__ == '__main__':

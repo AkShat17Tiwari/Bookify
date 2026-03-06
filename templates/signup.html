@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — Sign Up</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0f;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 230, 138, 0.25);
+            border-radius: 10px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .glow-bg {
+            position: fixed;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 900px;
+            height: 600px;
+            background: radial-gradient(ellipse, rgba(0, 180, 216, 0.06), rgba(0, 230, 138, 0.04), transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            animation: heroGlow 6s ease-in-out infinite alternate;
+        }
+
+        @keyframes heroGlow {
+            0% {
+                opacity: 0.7;
+                transform: translateX(-50%) scale(1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.1);
+            }
+        }
+
+        .auth-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 440px;
+            margin: 20px;
+            padding: 44px 40px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 28px;
+            backdrop-filter: blur(20px);
+            animation: cardIn 0.6s ease;
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(0, 180, 216, 0.25), rgba(0, 230, 138, 0.15));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.96);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .brand a {
+            font-size: 28px;
+            font-weight: 800;
+            text-decoration: none;
+            background: linear-gradient(135deg, #00e68a, #00b4d8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand p {
+            color: #555;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0e0;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            border-color: rgba(0, 180, 216, 0.4);
+            box-shadow: 0 0 0 4px rgba(0, 180, 216, 0.06);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .form-input::placeholder {
+            color: #444;
+        }
+
+        .btn-primary {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            margin-top: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            color: #0a0a0f;
+            background: linear-gradient(135deg, #00b4d8, #00e68a);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: all 0.35s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            transition: left 0.6s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 180, 216, 0.2);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+            color: #444;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 14px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-google:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-google svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .alt-link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .alt-link a {
+            color: #00b4d8;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .alt-link a:hover {
+            color: #00d4ff;
+        }
+
+        .error-msg {
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.15);
+            border-radius: 12px;
+            color: #f87171;
+            font-size: 13px;
+            font-weight: 500;
+            animation: cardIn 0.3s ease;
+        }
+
+        .pw-hint {
+            font-size: 11px;
+            color: #444;
+            margin-top: 6px;
+            padding-left: 4px;
+        }
+
+        .pw-match {
+            color: #00e68a;
+        }
+
+        .pw-mismatch {
+            color: #f87171;
+        }
+
+        .google-btn-wrap {
+            display: flex;
+            justify-content: center;
+        }
+
+        .google-btn-wrap>div {
+            width: 100% !important;
+        }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+    <canvas id="particleCanvas"></canvas>
+    <div class="glow-bg"></div>
+
+    <div class="auth-card">
+        <div class="brand">
+            <a href="/">📚 BOOKIFY</a>
+            <p>Create your account to get started</p>
+        </div>
+
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/signup" id="signupForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" class="form-input" placeholder="John Doe" required autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" class="form-input" placeholder="you@example.com" required
+                    autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" id="pw" class="form-input" placeholder="Min. 6 characters"
+                    required minlength="6" autocomplete="new-password">
+                <p class="pw-hint">At least 6 characters</p>
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" name="confirm_password" id="cpw" class="form-input" placeholder="••••••••"
+                    required autocomplete="new-password">
+                <p class="pw-hint" id="matchHint"></p>
+            </div>
+            <button type="submit" class="btn-primary">Create Account →</button>
+        </form>
+
+        {% if google_client_id %}
+        <div class="divider">or</div>
+        <div id="g_id_onload" data-client_id="{{ google_client_id }}"
+            data-login_uri="http://localhost:5001/google/callback" data-auto_prompt="false">
+        </div>
+        <div class="google-btn-wrap">
+            <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="filled_black"
+                data-text="signup_with" data-size="large" data-logo_alignment="left" data-width="360">
+            </div>
+        </div>
+        {% else %}
+        <div class="divider">or</div>
+        <button class="btn-google" onclick="window.location.href='/google/login'">
+            <svg viewBox="0 0 24 24">
+                <path fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                <path fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Sign up with Google
+        </button>
+        {% endif %}
+
+        <p class="alt-link">Already have an account? <a href="/login">Sign in</a></p>
+    </div>
+
+    <script>
+        // Password match validation
+        const pw = document.getElementById('pw');
+        const cpw = document.getElementById('cpw');
+        const hint = document.getElementById('matchHint');
+
+        cpw.addEventListener('input', () => {
+            if (cpw.value.length === 0) { hint.textContent = ''; hint.className = 'pw-hint'; return; }
+            if (pw.value === cpw.value) { hint.textContent = '✓ Passwords match'; hint.className = 'pw-hint pw-match'; }
+            else { hint.textContent = '✗ Passwords do not match'; hint.className = 'pw-hint pw-mismatch'; }
+        });
+
+        document.getElementById('signupForm').addEventListener('submit', (e) => {
+            if (pw.value !== cpw.value) { e.preventDefault(); alert('Passwords do not match.'); }
+        });
+
+        // Particle System
+        (function () {
+            const c = document.getElementById('particleCanvas');
+            const ctx = c.getContext('2d');
+            let ps = [];
+            function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+            resize(); window.addEventListener('resize', resize);
+            class P {
+                constructor() { this.reset(); }
+                reset() {
+                    this.x = Math.random() * c.width; this.y = Math.random() * c.height;
+                    this.s = Math.random() * 2 + 0.5; this.sx = (Math.random() - 0.5) * 0.3;
+                    this.sy = (Math.random() - 0.5) * 0.3; this.o = Math.random() * 0.2 + 0.05;
+                    this.cl = Math.random() > 0.5 ? '0, 180, 216' : '0, 230, 138';
+                }
+                update() { this.x += this.sx; this.y += this.sy; if (this.x < 0 || this.x > c.width) this.sx *= -1; if (this.y < 0 || this.y > c.height) this.sy *= -1; }
+                draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.s, 0, Math.PI * 2); ctx.fillStyle = `rgba(${this.cl}, ${this.o})`; ctx.fill(); }
+            }
+            for (let i = 0; i < 35; i++) ps.push(new P());
+            function animate() {
+                ctx.clearRect(0, 0, c.width, c.height);
+                ps.forEach(p => { p.update(); p.draw(); });
+                for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+                    const dx = ps[i].x - ps[j].x, dy = ps[i].y - ps[j].y, d = Math.sqrt(dx * dx + dy * dy);
+                    if (d < 120) { ctx.beginPath(); ctx.moveTo(ps[i].x, ps[i].y); ctx.lineTo(ps[j].x, ps[j].y); ctx.strokeStyle = `rgba(0, 180, 216, ${0.03 * (1 - d / 120)})`; ctx.lineWidth = 0.5; ctx.stroke(); }
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+
+    </script>
+</body>
+
+</html>

@@ -9,15 +9,17 @@
  * Restarting with stat
  * Debugger is active!
  * Debugger PIN: 231-518-244
-127.0.0.1 - - [18/Feb/2026 11:43:12] "POST /mood_recommend HTTP/1.1" 200 -
-127.0.0.1 - - [18/Feb/2026 13:01:30] "POST /mood_recommend HTTP/1.1" 200 -
-127.0.0.1 - - [18/Feb/2026 14:15:32] "GET /recommend HTTP/1.1" 200 -
-127.0.0.1 - - [18/Feb/2026 14:15:33] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [18/Feb/2026 14:15:34] "GET /mood HTTP/1.1" 200 -
- * Detected change in '/Users/akshat_tiwari/Documents/brs/book-recommender-system-master/train_ncf.py', reloading
+127.0.0.1 - - [18/Feb/2026 11:40:22] "POST /mood_recommend HTTP/1.1" 200 -
+ * Detected change in '/Users/akshat_tiwari/Documents/brs/book-recommender-system-master/app.py', reloading
 ✅ NCF deep learning model loaded!
 ✅ Genre data loaded: 18 genres, 1207 classified books
 ✅ Genre index cache built for 18 genres
+DEBUG: Processing genre 'Romance' with 104 books
+DEBUG ERROR in Romance: 'title'
+DEBUG: Processing genre 'Travel' with 51 books
+DEBUG ERROR in Travel: 'title'
+DEBUG: Processing genre 'Cooking' with 21 books
+DEBUG ERROR in Cooking: 'title'
  * Restarting with stat
  * Debugger is active!
  * Debugger PIN: 231-518-244

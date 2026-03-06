@@ -567,7 +567,8 @@ def expand_collaborative_filtering(books_df, genre_map, cf_target=5000):
     """Expand pivot table to cf_target books."""
     print(f"\n🤖 Expanding collaborative filtering to {cf_target:,} books...")
 
-    pt = pickle.load(open('pt.pkl', 'rb'))
+    with open('pt.pkl', 'rb') as f:
+        pt = pickle.load(f)
     old_count = pt.shape[0]
     existing_titles = set(pt.index)
     users = pt.columns.tolist()
@@ -677,12 +678,18 @@ def save_all(books_df, combined_pt, sim_scores, popular, genre_books, genre_map,
             os.rename(f, f + '.bak')
             print(f"  📁 Backed up {f}")
 
-    pickle.dump(books_df, open('books.pkl', 'wb'))
-    pickle.dump(combined_pt, open('pt.pkl', 'wb'))
-    pickle.dump(sim_scores, open('similarity_scores.pkl', 'wb'))
-    pickle.dump(popular, open('popular.pkl', 'wb'))
-    pickle.dump({'genre_books': genre_books, 'genre_map': genre_map}, open('genre_data.pkl', 'wb'))
-    pickle.dump(slim_books, open('books_slim.pkl', 'wb'))
+    with open('books.pkl', 'wb') as f:
+        pickle.dump(books_df, f)
+    with open('pt.pkl', 'wb') as f:
+        pickle.dump(combined_pt, f)
+    with open('similarity_scores.pkl', 'wb') as f:
+        pickle.dump(sim_scores, f)
+    with open('popular.pkl', 'wb') as f:
+        pickle.dump(popular, f)
+    with open('genre_data.pkl', 'wb') as f:
+        pickle.dump({'genre_books': genre_books, 'genre_map': genre_map}, f)
+    with open('books_slim.pkl', 'wb') as f:
+        pickle.dump(slim_books, f)
 
     for f in ['books.pkl', 'pt.pkl', 'similarity_scores.pkl', 'popular.pkl', 'genre_data.pkl', 'books_slim.pkl']:
         sz = os.path.getsize(f) / 1024 / 1024
@@ -706,17 +713,20 @@ if __name__ == '__main__':
     cache_file = 'api_books_cache.pkl'
     if os.path.exists(cache_file):
         print(f"\n📦 Loading cached API books from {cache_file}...")
-        api_books = pickle.load(open(cache_file, 'rb'))
+        with open(cache_file, 'rb') as f:
+            api_books = pickle.load(f)
         print(f"  ✓ Loaded {len(api_books):,} cached books")
     else:
         api_books = fetch_books_concurrent()
         if len(api_books) > 0:
-            pickle.dump(api_books, open(cache_file, 'wb'))
+            with open(cache_file, 'wb') as f:
+                pickle.dump(api_books, f)
             print(f"  💾 Cached API books to {cache_file}")
 
     # 2. Merge with existing
     print(f"\n🔗 Merging with existing catalog...")
-    existing = pickle.load(open('books.pkl', 'rb'))
+    with open('books.pkl', 'rb') as f:
+        existing = pickle.load(f)
     if 'Genre' not in existing.columns:
         existing['Genre'] = ''
     print(f"  Existing: {len(existing):,} ({existing['Book-Title'].nunique():,} unique)")

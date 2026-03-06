@@ -15,11 +15,41 @@
             box-sizing: border-box;
         }
 
+        /* ---- Custom Scrollbar ---- */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0f;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(167, 139, 250, 0.25);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(167, 139, 250, 0.45);
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: #0a0a0f;
             color: #e0e0e0;
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ---- Particle Canvas ---- */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
         }
 
         /* ---- Navbar ---- */
@@ -32,9 +62,14 @@
             justify-content: space-between;
             padding: 0 40px;
             height: 64px;
-            background: rgba(10, 10, 15, 0.85);
-            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(24px) saturate(1.4);
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            transition: box-shadow 0.3s;
+        }
+
+        nav.scrolled {
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
         }
 
         .nav-brand {
@@ -50,57 +85,87 @@
 
         .nav-links {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             list-style: none;
         }
 
         .nav-links a {
             text-decoration: none;
-            color: #aaa;
+            color: #888;
             font-size: 14px;
             font-weight: 500;
             padding: 8px 18px;
-            border-radius: 8px;
-            transition: all 0.25s;
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
-        .nav-links a:hover,
+        .nav-links a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
         .nav-links a.active {
             color: #fff;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(167, 139, 250, 0.1);
+            box-shadow: 0 0 20px rgba(167, 139, 250, 0.08);
         }
-
-
-
 
         /* ---- Hero ---- */
         .hero {
             text-align: center;
-            padding: 50px 20px 20px;
+            padding: 60px 20px 20px;
             position: relative;
+            z-index: 1;
         }
 
         .hero::before {
             content: '';
             position: absolute;
-            top: -80px;
+            top: -100px;
             left: 50%;
             transform: translateX(-50%);
-            width: 500px;
-            height: 350px;
-            background: radial-gradient(ellipse, rgba(167, 139, 250, 0.12), transparent 70%);
+            width: 700px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(167, 139, 250, 0.08), rgba(236, 72, 153, 0.05), transparent 70%);
             pointer-events: none;
+            animation: heroGlow 6s ease-in-out infinite alternate;
+        }
+
+        @keyframes heroGlow {
+            0% {
+                opacity: 0.7;
+                transform: translateX(-50%) scale(1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.08);
+            }
         }
 
         .hero h1 {
             font-size: 48px;
             font-weight: 800;
-            letter-spacing: -1.5px;
+            letter-spacing: -2px;
             margin-bottom: 12px;
-            background: linear-gradient(135deg, #ffffff, #a0a0a0);
+            background: linear-gradient(135deg, #ffffff 0%, #d0d0d0 50%, #ffffff 100%);
+            background-size: 200% 200%;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            animation: shineText 4s ease-in-out infinite;
+        }
+
+        @keyframes shineText {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         .hero p {
@@ -108,6 +173,7 @@
             color: #666;
             max-width: 520px;
             margin: 0 auto;
+            line-height: 1.6;
         }
 
         /* ---- Steps indicator ---- */
@@ -115,9 +181,11 @@
             display: flex;
             justify-content: center;
             gap: 0;
-            margin: 30px auto 30px;
+            margin: 30px auto;
             max-width: 600px;
             padding: 0 20px;
+            position: relative;
+            z-index: 1;
         }
 
         .step-item {
@@ -130,19 +198,20 @@
         }
 
         .step-circle {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
             font-weight: 700;
-            border: 2px solid #333;
-            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid #2a2a35;
+            background: rgba(255, 255, 255, 0.025);
             color: #555;
-            transition: all 0.4s ease;
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             z-index: 2;
+            backdrop-filter: blur(4px);
         }
 
         .step-label {
@@ -151,14 +220,15 @@
             color: #444;
             letter-spacing: 0.8px;
             text-transform: uppercase;
-            transition: color 0.4s ease;
+            transition: color 0.5s;
             margin-top: 6px;
         }
 
         .step-item.active .step-circle {
             border-color: #a78bfa;
-            background: rgba(167, 139, 250, 0.15);
+            background: rgba(167, 139, 250, 0.12);
             color: #a78bfa;
+            box-shadow: 0 0 20px rgba(167, 139, 250, 0.15);
         }
 
         .step-item.active .step-label {
@@ -167,8 +237,9 @@
 
         .step-item.done .step-circle {
             border-color: #00e68a;
-            background: rgba(0, 230, 138, 0.15);
+            background: rgba(0, 230, 138, 0.12);
             color: #00e68a;
+            box-shadow: 0 0 20px rgba(0, 230, 138, 0.12);
         }
 
         .step-item.done .step-label {
@@ -177,18 +248,18 @@
 
         .step-connector {
             position: absolute;
-            top: 20px;
+            top: 21px;
             left: 50%;
             width: 100%;
             height: 2px;
-            background: #222;
+            background: #1a1a24;
             z-index: 1;
         }
 
         .step-connector-fill {
             height: 100%;
             width: 0;
-            transition: width 0.5s ease;
+            transition: width 0.6s ease;
         }
 
         .step-item.done .step-connector .step-connector-fill {
@@ -202,17 +273,38 @@
             margin: 0 auto;
             padding: 0 20px;
             text-align: center;
+            position: relative;
+            z-index: 1;
         }
 
         .cam-wrapper {
             position: relative;
             width: 100%;
             aspect-ratio: 4/3;
-            border-radius: 20px;
+            border-radius: 22px;
             overflow: hidden;
-            background: #111;
-            border: 2px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(135deg, #111118, #0d0d14);
+            border: 2px solid rgba(255, 255, 255, 0.06);
             margin-bottom: 20px;
+            transition: border-color 0.4s, box-shadow 0.4s;
+        }
+
+        .cam-wrapper.recording {
+            border-color: rgba(167, 139, 250, 0.35);
+            box-shadow: 0 0 40px rgba(167, 139, 250, 0.1);
+            animation: camPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes camPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 30px rgba(167, 139, 250, 0.08);
+            }
+
+            50% {
+                box-shadow: 0 0 50px rgba(167, 139, 250, 0.18);
+            }
         }
 
         .cam-wrapper video,
@@ -241,7 +333,7 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: #555;
+            color: #444;
             gap: 12px;
         }
 
@@ -253,7 +345,7 @@
             font-size: 14px;
         }
 
-        /* Flash effect */
+        /* Flash */
         .cam-flash {
             position: absolute;
             inset: 0;
@@ -284,6 +376,8 @@
             justify-content: center;
             margin-bottom: 20px;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
         }
 
         .btn {
@@ -292,10 +386,27 @@
             font-weight: 600;
             font-family: 'Inter', sans-serif;
             border: none;
-            border-radius: 12px;
+            border-radius: 14px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn-primary {
@@ -304,19 +415,21 @@
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(167, 139, 250, 0.25);
+            transform: translateY(-3px);
+            box-shadow: 0 14px 44px rgba(167, 139, 250, 0.25);
         }
 
         .btn-secondary {
-            color: #ccc;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #bbb;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(4px);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             color: #fff;
+            transform: translateY(-2px);
         }
 
         .btn-green {
@@ -325,12 +438,12 @@
         }
 
         .btn-green:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(0, 230, 138, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 14px 44px rgba(0, 230, 138, 0.2);
         }
 
         .btn:disabled {
-            opacity: 0.35;
+            opacity: 0.3;
             cursor: not-allowed;
             transform: none !important;
             box-shadow: none !important;
@@ -341,6 +454,8 @@
             text-align: center;
             margin-bottom: 24px;
             min-height: 28px;
+            position: relative;
+            z-index: 1;
         }
 
         .status-msg {
@@ -348,49 +463,67 @@
             padding: 6px 18px;
             font-size: 13px;
             font-weight: 600;
-            border-radius: 20px;
+            border-radius: 22px;
             letter-spacing: 0.5px;
-            animation: fadeUp 0.3s ease;
+            animation: cardReveal 0.3s ease;
+            backdrop-filter: blur(8px);
         }
 
         .status-loading {
             color: #fbbf24;
-            background: rgba(251, 191, 36, 0.1);
-            border: 1px solid rgba(251, 191, 36, 0.2);
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.15);
         }
 
         .status-success {
             color: #00e68a;
-            background: rgba(0, 230, 138, 0.1);
-            border: 1px solid rgba(0, 230, 138, 0.2);
+            background: rgba(0, 230, 138, 0.08);
+            border: 1px solid rgba(0, 230, 138, 0.15);
         }
 
         .status-error {
             color: #f87171;
-            background: rgba(248, 113, 113, 0.1);
-            border: 1px solid rgba(248, 113, 113, 0.2);
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.15);
         }
 
         /* ---- Emotion Result Card ---- */
         .emotion-card {
             max-width: 580px;
             margin: 0 auto 24px;
-            padding: 32px;
-            background: rgba(167, 139, 250, 0.05);
-            border: 1px solid rgba(167, 139, 250, 0.15);
-            border-radius: 20px;
+            padding: 36px;
+            background: rgba(167, 139, 250, 0.04);
+            border: 1px solid rgba(167, 139, 250, 0.12);
+            border-radius: 22px;
             text-align: center;
-            animation: fadeUp 0.6s ease;
+            animation: cardReveal 0.6s ease;
             display: none;
+            backdrop-filter: blur(12px);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .emotion-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.3), rgba(236, 72, 153, 0.2));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
         }
 
         .emotion-emoji {
-            font-size: 64px;
+            font-size: 68px;
             margin-bottom: 12px;
         }
 
         .emotion-label {
-            font-size: 32px;
+            font-size: 34px;
             font-weight: 800;
             text-transform: capitalize;
             background: linear-gradient(135deg, #a78bfa, #ec4899);
@@ -400,14 +533,14 @@
             margin-bottom: 16px;
         }
 
-        /* Accuracy bar */
+        /* Accuracy */
         .accuracy-section {
             margin: 8px 0 20px;
         }
 
         .accuracy-label {
             font-size: 13px;
-            color: #888;
+            color: #777;
             font-weight: 500;
             letter-spacing: 0.5px;
             margin-bottom: 8px;
@@ -418,7 +551,7 @@
             max-width: 300px;
             height: 10px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
             overflow: hidden;
         }
@@ -443,7 +576,7 @@
         }
 
         .accuracy-pct {
-            font-size: 40px;
+            font-size: 42px;
             font-weight: 800;
             margin: 12px 0 4px;
             letter-spacing: -1px;
@@ -471,17 +604,18 @@
 
         .expr-chip {
             font-size: 12px;
-            padding: 5px 12px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #888;
+            padding: 6px 14px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #777;
             font-weight: 500;
+            backdrop-filter: blur(4px);
         }
 
         .expr-chip.top {
-            background: rgba(167, 139, 250, 0.12);
-            border-color: rgba(167, 139, 250, 0.3);
+            background: rgba(167, 139, 250, 0.1);
+            border-color: rgba(167, 139, 250, 0.25);
             color: #a78bfa;
             font-weight: 600;
         }
@@ -491,7 +625,7 @@
             font-size: 14px;
             margin-top: 16px;
             padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .emotion-genres span {
@@ -506,10 +640,11 @@
             justify-content: center;
             gap: 14px;
             margin: 16px 0;
-            padding: 12px 20px;
-            background: rgba(255, 255, 255, 0.03);
+            padding: 14px 20px;
+            background: rgba(255, 255, 255, 0.025);
             border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 12px;
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
         }
 
         .mode-toggle label {
@@ -549,9 +684,9 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 230, 138, 0.3);
+            background: rgba(0, 230, 138, 0.25);
             border-radius: 28px;
-            transition: all 0.3s;
+            transition: all 0.35s;
         }
 
         .slider::before {
@@ -563,11 +698,12 @@
             bottom: 3px;
             background: #fff;
             border-radius: 50%;
-            transition: all 0.3s;
+            transition: all 0.35s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         .toggle-switch input:checked+.slider {
-            background: rgba(167, 139, 250, 0.4);
+            background: rgba(167, 139, 250, 0.35);
         }
 
         .toggle-switch input:checked+.slider::before {
@@ -577,6 +713,8 @@
         /* ---- Results Grid ---- */
         .results-section {
             display: none;
+            position: relative;
+            z-index: 1;
         }
 
         .results-label {
@@ -595,27 +733,54 @@
             padding: 0 30px 80px;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 28px;
+            gap: 24px;
         }
 
         .result-card {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.025);
             border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 16px;
+            border-radius: 18px;
             padding: 20px;
-            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             opacity: 0;
-            transform: translateY(30px);
-            animation: fadeUp 0.5s forwards;
+            transform: translateY(40px) scale(0.97);
+            animation: cardReveal 0.6s forwards;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+
+        @keyframes cardReveal {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 18px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0), rgba(236, 72, 153, 0));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            transition: background 0.5s;
+            pointer-events: none;
+        }
+
+        .result-card:hover::before {
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.35), rgba(236, 72, 153, 0.25));
         }
 
         .result-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(167, 139, 250, 0.3);
-            box-shadow: 0 20px 60px rgba(167, 139, 250, 0.08), 0 0 0 1px rgba(167, 139, 250, 0.15);
-            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 24px 64px rgba(167, 139, 250, 0.06),
+                0 0 0 1px rgba(167, 139, 250, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.045);
         }
 
         .result-card::after {
@@ -625,9 +790,21 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #a78bfa, #ec4899);
+            background: linear-gradient(90deg, #a78bfa, #ec4899, #00e68a);
+            background-size: 200% 100%;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.4s;
+            animation: gradientShift 3s linear infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 200% 50%;
+            }
         }
 
         .result-card:hover::after {
@@ -636,11 +813,11 @@
 
         /* XAI Explanation bullets */
         .xai-reasons {
-            margin-top: 10px;
-            padding: 8px 10px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.025);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .xai-reasons .xai-label {
@@ -648,8 +825,8 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1.2px;
-            color: #00e68a;
-            margin-bottom: 5px;
+            color: #a78bfa;
+            margin-bottom: 6px;
         }
 
         .xai-reasons ul {
@@ -660,71 +837,72 @@
 
         .xai-reasons li {
             font-size: 11px;
-            color: #aab;
-            padding: 2px 0;
-            line-height: 1.4;
+            color: #999;
+            padding: 3px 0;
+            line-height: 1.45;
         }
 
         .xai-reasons li:first-child {
-            color: #dde;
+            color: #ccc;
         }
 
         .result-img-wrapper {
             width: 100%;
             height: 280px;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
             margin-bottom: 16px;
-            background: #111;
+            background: linear-gradient(135deg, #111118, #0d0d14);
         }
 
         .result-img-wrapper img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.4s;
         }
 
         .result-card:hover .result-img-wrapper img {
-            transform: scale(1.06);
+            transform: scale(1.08);
+            filter: brightness(1.05);
         }
 
         .result-title {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
             color: #f0f0f0;
             margin-bottom: 6px;
-            line-height: 1.4;
+            line-height: 1.45;
         }
 
         .result-author {
             font-size: 13px;
             color: #a78bfa;
             font-weight: 500;
+            opacity: 0.85;
+            transition: opacity 0.3s;
+        }
+
+        .result-card:hover .result-author {
+            opacity: 1;
         }
 
         .rank-badge {
             position: absolute;
             top: 12px;
             right: 12px;
-            background: rgba(167, 139, 250, 0.15);
-            border: 1px solid rgba(167, 139, 250, 0.3);
+            background: rgba(167, 139, 250, 0.12);
+            border: 1px solid rgba(167, 139, 250, 0.25);
             color: #a78bfa;
             font-size: 11px;
             font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 8px;
+            padding: 5px 12px;
+            border-radius: 10px;
             z-index: 2;
+            backdrop-filter: blur(8px);
         }
 
         /* ---- Animations ---- */
-        @keyframes fadeUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
         @keyframes pulse {
 
             0%,
@@ -741,6 +919,102 @@
             animation: pulse 1.5s ease-in-out infinite;
         }
 
+        /* ---- Footer ---- */
+        .site-footer {
+            max-width: 600px;
+            margin: 60px auto 0;
+            padding: 48px 32px 56px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .footer-subtitle {
+            color: #444;
+            font-size: 13px;
+            margin-bottom: 28px;
+            letter-spacing: 0.5px;
+        }
+
+        .contact-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .contact-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 28px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            min-width: 280px;
+            backdrop-filter: blur(8px);
+            transition: all 0.35s;
+        }
+
+        .contact-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(167, 139, 250, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .contact-icon {
+            font-size: 20px;
+        }
+
+        .contact-label {
+            font-size: 11px;
+            color: #444;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .contact-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #f0f0f0;
+        }
+
+        .contact-value a {
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .contact-value a.purple {
+            color: #a78bfa;
+        }
+
+        .contact-value a.pink {
+            color: #ec4899;
+        }
+
+        .contact-value a:hover {
+            color: #fff;
+        }
+
+        .footer-copy {
+            color: #2a2a35;
+            font-size: 12px;
+            margin-top: 32px;
+        }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             nav {
@@ -748,7 +1022,7 @@
             }
 
             .hero h1 {
-                font-size: 32px;
+                font-size: 34px;
             }
 
             .cam-section {
@@ -758,9 +1032,8 @@
             .results-grid {
                 padding: 0 16px 60px;
                 grid-template-columns: repeat(2, 1fr);
-                gap: 16px;
+                gap: 14px;
             }
-
 
             .accuracy-pct {
                 font-size: 32px;
@@ -771,6 +1044,8 @@
 
 <body>
 
+    <canvas id="particleCanvas"></canvas>
+
     <nav>
         <a class="nav-brand" href="/">📚 BOOKIFY</a>
         <ul class="nav-links">
@@ -780,6 +1055,15 @@
             <li><a href="/multimodal">Multi-Modal</a></li>
             <li><a href="#contact">Contact</a></li>
         </ul>
+        {% if user %}
+        <div style="display:flex;align-items:center;gap:14px;">
+            <span style="font-size:13px;color:#888;font-weight:500;">👤 {{ user.name }}</span>
+            <a href="/logout"
+                style="font-size:12px;color:#555;text-decoration:none;padding:6px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.3s;font-weight:600;"
+                onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.2)'"
+                onmouseout="this.style.color='#555';this.style.borderColor='rgba(255,255,255,0.08)'">Logout</a>
+        </div>
+        {% endif %}
     </nav>
 
     <section class="hero">
@@ -862,6 +1146,72 @@
     </div>
 
     <script>
+        // ---- Particle System ----
+        (function () {
+            const canvas = document.getElementById('particleCanvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            const PARTICLE_COUNT = 40;
+
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            resize();
+            window.addEventListener('resize', resize);
+
+            class Particle {
+                constructor() { this.reset(); }
+                reset() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 2 + 0.5;
+                    this.speedX = (Math.random() - 0.5) * 0.3;
+                    this.speedY = (Math.random() - 0.5) * 0.3;
+                    this.opacity = Math.random() * 0.25 + 0.05;
+                    this.color = Math.random() > 0.5 ? '167, 139, 250' : '236, 72, 153';
+                }
+                update() {
+                    this.x += this.speedX; this.y += this.speedY;
+                    if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${this.color}, ${this.opacity})`;
+                    ctx.fill();
+                }
+            }
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => { p.update(); p.draw(); });
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 110) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(167, 139, 250, ${0.035 * (1 - dist / 110)})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        // ---- Scroll Effects ----
+        window.addEventListener('scroll', () => {
+            document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 20);
+        });
+
+        // ---- Mood Logic ----
         const EMOJIS = {
             happy: '😊', sad: '😢', angry: '😠', fearful: '😨',
             disgusted: '🤢', surprised: '😲', neutral: '😐'
@@ -905,12 +1255,8 @@
 
         /* ── STEP 1a: Start / stop camera ── */
         async function startCamera() {
-            if (cameraOn) {
-                stopCamera();
-                return;
-            }
+            if (cameraOn) { stopCamera(); return; }
 
-            // Check for secure context (getUserMedia requires HTTPS or localhost)
             if (!window.isSecureContext) {
                 setStatus('⚠ Camera requires HTTPS or localhost. <a href="http://localhost:5001/mood" style="color:#a78bfa;text-decoration:underline;">Click here to open via localhost</a>', 'error');
                 return;
@@ -931,7 +1277,6 @@
 
                 video.srcObject = stream;
 
-                // Wait for the video to be ready before showing it
                 await new Promise((resolve, reject) => {
                     video.onloadedmetadata = () => resolve();
                     video.onerror = (e) => reject(e);
@@ -943,6 +1288,7 @@
                 video.style.display = 'block';
                 document.getElementById('camPlaceholder').style.display = 'none';
                 document.getElementById('snapshot').style.display = 'none';
+                document.getElementById('camWrapper').classList.add('recording');
                 cameraOn = true;
                 document.getElementById('btnStart').textContent = '⏹ Stop Camera';
                 if (!modelsLoaded) await loadModels();
@@ -960,7 +1306,6 @@
                     setStatus('Camera is in use by another app. Close other apps using the camera and try again.', 'error');
                 } else if (e.name === 'OverconstrainedError') {
                     setStatus('Camera constraints not supported. Trying again…', 'loading');
-                    // Retry with no constraints
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                         video.srcObject = stream;
@@ -969,6 +1314,7 @@
                         video.style.display = 'block';
                         document.getElementById('camPlaceholder').style.display = 'none';
                         document.getElementById('snapshot').style.display = 'none';
+                        document.getElementById('camWrapper').classList.add('recording');
                         cameraOn = true;
                         document.getElementById('btnStart').textContent = '⏹ Stop Camera';
                         if (!modelsLoaded) await loadModels();
@@ -987,6 +1333,7 @@
             if (video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
             video.style.display = 'none';
             document.getElementById('camPlaceholder').style.display = 'flex';
+            document.getElementById('camWrapper').classList.remove('recording');
             document.getElementById('btnStart').textContent = '📷 Start Camera';
             document.getElementById('btnCapture').disabled = true;
             cameraOn = false;
@@ -996,25 +1343,22 @@
         function capturePhoto() {
             if (!cameraOn) return;
 
-            // Flash effect
             const flash = document.getElementById('flash');
             flash.classList.remove('fire');
             void flash.offsetWidth;
             flash.classList.add('fire');
 
-            // Draw current frame to snapshot canvas
             const snap = document.getElementById('snapshot');
             snap.width = video.videoWidth;
             snap.height = video.videoHeight;
             snap.getContext('2d').drawImage(video, 0, 0);
             snap.style.display = 'block';
 
-            // Freeze: stop camera stream, show snapshot
             video.srcObject.getTracks().forEach(t => t.stop());
             video.style.display = 'none';
+            document.getElementById('camWrapper').classList.remove('recording');
             cameraOn = false;
 
-            // UI: show Analyze / Retake buttons
             document.getElementById('btnRowCam').style.display = 'none';
             document.getElementById('btnRowAnalyze').style.display = 'flex';
 
@@ -1059,7 +1403,6 @@
                     return;
                 }
 
-                // Draw bounding box on overlay
                 const ov = document.getElementById('overlay');
                 ov.width = snap.width;
                 ov.height = snap.height;
@@ -1068,23 +1411,19 @@
                 const resized = faceapi.resizeResults(detection, dims);
                 faceapi.draw.drawDetections(ov, resized);
 
-                // Find top emotion
                 const expr = detection.expressions;
                 allExpressions = expr;
                 detectedEmotion = Object.keys(expr).reduce((a, b) => expr[a] > expr[b] ? a : b);
                 detectedConfidence = expr[detectedEmotion];
                 const pct = (detectedConfidence * 100).toFixed(1);
 
-                // Accuracy level
                 const lvl = detectedConfidence >= 0.7 ? 'high' : detectedConfidence >= 0.4 ? 'medium' : 'low';
 
-                // Build expression chips
                 const sortedExpr = Object.entries(expr).sort((a, b) => b[1] - a[1]);
                 const chips = sortedExpr.map(([em, val]) =>
                     `<span class="expr-chip ${em === detectedEmotion ? 'top' : ''}">${EMOJIS[em] || ''} ${em} ${(val * 100).toFixed(0)}%</span>`
                 ).join('');
 
-                // Show emotion card
                 const card = document.getElementById('emotionCard');
                 card.innerHTML = `
                 <div class="emotion-emoji">${EMOJIS[detectedEmotion] || '😐'}</div>
@@ -1100,12 +1439,10 @@
             `;
                 card.style.display = 'block';
 
-                // Animate accuracy bar
                 requestAnimationFrame(() => {
                     document.getElementById('accBar').style.width = pct + '%';
                 });
 
-                // Show "Get Books" button
                 document.getElementById('btnRowBooks').style.display = 'flex';
                 document.getElementById('btnRowAnalyze').style.display = 'none';
 
@@ -1140,17 +1477,14 @@
                 });
                 const data = await res.json();
 
-                // Add genres to emotion card
                 const genreList = data.genres.map(g => `<span>${g}</span>`).join(', ');
                 const card = document.getElementById('emotionCard');
-                // Remove old genres div if exists
                 const oldGenres = card.querySelector('.emotion-genres');
                 if (oldGenres) oldGenres.remove();
                 card.querySelector('.emotion-card, .all-expr')?.insertAdjacentHTML('afterend',
                     `<div class="emotion-genres">Recommending from: ${genreList}</div>`
                 );
 
-                // Build book cards
                 if (data.books.length > 0) {
                     const grid = document.getElementById('resultsGrid');
                     grid.innerHTML = data.books.map((book, i) => {
@@ -1177,7 +1511,6 @@
                         `📚 Books for your ${detectedEmotion} mood`;
                     document.getElementById('resultsSection').style.display = 'block';
 
-                    // Scroll to results
                     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             } catch (err) {
@@ -1202,53 +1535,34 @@
     </script>
 
     <!-- Contact Section -->
-    <footer id="contact" style="
-        max-width: 600px; margin: 60px auto 0; padding: 48px 32px 56px;
-        text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
-    ">
-        <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 6px;
-            background: linear-gradient(135deg,#a78bfa,#ec4899);
-            -webkit-background-clip: text; background-clip: text;
-            -webkit-text-fill-color: transparent;">Contact</h2>
-        <p style="color:#555; font-size:13px; margin-bottom:28px; letter-spacing:0.5px;">Get in touch</p>
-        <div style="display:flex; flex-direction:column; gap:16px; align-items:center;">
-            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
-                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
-                border-radius:12px; min-width:280px;">
-                <span style="font-size:20px;">👤</span>
+    <footer id="contact" class="site-footer">
+        <h2 class="footer-title">Contact</h2>
+        <p class="footer-subtitle">Get in touch</p>
+        <div class="contact-cards">
+            <div class="contact-card">
+                <span class="contact-icon">👤</span>
                 <div style="text-align:left;">
-                    <div
-                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
-                        Owner</div>
-                    <div style="font-size:15px; font-weight:600; color:#f0f0f0;">AKSHAT TIWARI</div>
+                    <div class="contact-label">Owner</div>
+                    <div class="contact-value">AKSHAT TIWARI</div>
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
-                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
-                border-radius:12px; min-width:280px;">
-                <span style="font-size:20px;">📞</span>
+            <div class="contact-card">
+                <span class="contact-icon">📞</span>
                 <div style="text-align:left;">
-                    <div
-                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
-                        Phone</div>
-                    <a href="tel:7080046904"
-                        style="font-size:15px; font-weight:600; color:#a78bfa; text-decoration:none;">7080046904</a>
+                    <div class="contact-label">Phone</div>
+                    <div class="contact-value"><a href="tel:7080046904" class="purple">7080046904</a></div>
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:12px; padding:14px 28px;
-                background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
-                border-radius:12px; min-width:280px;">
-                <span style="font-size:20px;">📧</span>
+            <div class="contact-card">
+                <span class="contact-icon">📧</span>
                 <div style="text-align:left;">
-                    <div
-                        style="font-size:11px; color:#555; font-weight:600; letter-spacing:1px; text-transform:uppercase;">
-                        Email</div>
-                    <a href="mailto:akshatr147@gmail.com"
-                        style="font-size:15px; font-weight:600; color:#ec4899; text-decoration:none;">akshatr147@gmail.com</a>
+                    <div class="contact-label">Email</div>
+                    <div class="contact-value"><a href="mailto:akshatr147@gmail.com"
+                            class="pink">akshatr147@gmail.com</a></div>
                 </div>
             </div>
         </div>
-        <p style="color:#333; font-size:12px; margin-top:32px;">© 2026 BOOKIFY. All rights reserved.</p>
+        <p class="footer-copy">© 2026 BOOKIFY. All rights reserved.</p>
     </footer>
 
 </body>
