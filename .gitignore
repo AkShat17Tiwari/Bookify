@@ -3,3 +3,13 @@ __pycache__/
 *.pyc
 .DS_Store
 books.pkl
+
+# Large model/data files (too big for GitHub)
+similarity_scores.pkl
+ncf_similarity_scores.pkl
+books.pkl.bak
+genre_data.pkl
+pt.pkl
+ncf_book_embeddings.pkl
+users.db
+logs/
