@@ -467,7 +467,8 @@ def request_guard():
         # Skip CSRF for specific endpoints that use other auth (Google callback, API JSON)
         csrf_exempt = ('/google/callback', '/analyze_cover', '/voice_search',
                        '/history', '/multimodal_recommend', '/mood_recommend',
-                       '/recommend_books', '/autocomplete')
+                       '/recommend_books', '/autocomplete', '/rate', '/history/remove',
+                       '/onboarding')
         if path not in csrf_exempt:
             token = (request.form.get('csrf_token') or
                      request.headers.get('X-CSRF-Token', ''))

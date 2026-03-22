@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — For You</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        ::-webkit-scrollbar{width:6px;} ::-webkit-scrollbar-track{background:#0a0a0f;} ::-webkit-scrollbar-thumb{background:rgba(0,230,138,0.25);border-radius:10px;}
+        body{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh;overflow-x:hidden;}
+        #particleCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+        @keyframes cardReveal{from{opacity:0;transform:translateY(30px) scale(0.97);}to{opacity:1;transform:none;}}
+        @keyframes heroGlow{0%{opacity:.7;transform:translateX(-50%) scale(1);}100%{opacity:1;transform:translateX(-50%) scale(1.08);}}
+        @keyframes shineText{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+        @keyframes gradientShift{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
+
+        nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(10,10,15,0.7);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.06);transition:box-shadow 0.3s;}
+        nav.scrolled{box-shadow:0 4px 30px rgba(0,0,0,0.4);}
+        .nav-brand{font-size:20px;font-weight:700;background:linear-gradient(135deg,#00e68a,#00b4d8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;}
+        .nav-links{display:flex;gap:4px;list-style:none;}
+        .nav-links a{text-decoration:none;color:#888;font-size:14px;font-weight:500;padding:8px 18px;border-radius:10px;transition:all 0.3s;}
+        .nav-links a:hover{color:#fff;background:rgba(255,255,255,0.06);}
+        .nav-links a.active{color:#fff;background:rgba(0,230,138,0.1);}
+        .nav-right{display:flex;align-items:center;gap:14px;}
+        .nav-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e68a,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0a0a0f;text-decoration:none;}
+        .logout-btn{font-size:12px;color:#555;text-decoration:none;padding:6px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.3s;font-weight:600;}
+        .logout-btn:hover{color:#f87171;border-color:rgba(248,113,113,0.2);}
+        .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;}
+        .hamburger span{display:block;width:22px;height:2px;background:#888;border-radius:2px;}
+        .mobile-menu{display:none;position:absolute;top:64px;left:0;right:0;background:rgba(10,10,15,0.97);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px;z-index:99;}
+        .mobile-menu.open{display:block;}
+        .mobile-menu a{display:block;padding:12px 16px;color:#888;font-size:15px;font-weight:500;text-decoration:none;border-radius:10px;margin-bottom:4px;}
+        .mobile-menu a:hover,.mobile-menu a.active{color:#fff;background:rgba(0,230,138,0.08);}
+        @media(max-width:768px){nav{padding:0 20px;}.nav-links{display:none;}.hamburger{display:flex;}}
+
+        .hero{text-align:center;padding:80px 20px 30px;position:relative;z-index:1;}
+        .hero::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:700px;height:400px;background:radial-gradient(ellipse,rgba(0,230,138,0.08),rgba(0,180,216,0.05),transparent 70%);pointer-events:none;animation:heroGlow 6s ease-in-out infinite alternate;}
+        .hero h1{font-size:52px;font-weight:800;letter-spacing:-2px;margin-bottom:14px;background:linear-gradient(135deg,#fff 0%,#d0d0d0 50%,#fff 100%);background-size:200% 200%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shineText 4s ease-in-out infinite;}
+        .hero p{font-size:17px;color:#666;max-width:480px;margin:0 auto;line-height:1.6;}
+
+        .genre-pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:24px auto 0;max-width:700px;padding:0 20px;position:relative;z-index:1;}
+        .genre-pill{padding:6px 18px;font-size:13px;font-weight:600;border-radius:24px;background:rgba(0,230,138,0.08);border:1px solid rgba(0,230,138,0.18);color:#00e68a;}
+
+        .results-grid{max-width:1100px;margin:40px auto 0;padding:0 30px 80px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:24px;position:relative;z-index:1;}
+        .result-card{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:18px;padding:20px;transition:all 0.4s cubic-bezier(0.25,0.46,0.45,0.94);opacity:0;transform:translateY(40px) scale(0.97);animation:cardReveal 0.6s forwards;position:relative;overflow:hidden;backdrop-filter:blur(8px);}
+        .result-card::before{content:'';position:absolute;inset:0;border-radius:18px;padding:1px;background:linear-gradient(135deg,rgba(0,230,138,0),rgba(0,180,216,0));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;transition:background 0.5s;pointer-events:none;}
+        .result-card:hover::before{background:linear-gradient(135deg,rgba(0,230,138,0.35),rgba(0,180,216,0.3));}
+        .result-card:hover{transform:translateY(-10px) scale(1.02);box-shadow:0 24px 64px rgba(0,230,138,0.06),0 0 0 1px rgba(0,230,138,0.1);background:rgba(255,255,255,0.045);}
+        .result-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00e68a,#00b4d8,#a78bfa);background-size:200% 100%;opacity:0;transition:opacity 0.4s;animation:gradientShift 3s linear infinite;}
+        .result-card:hover::after{opacity:1;}
+        .card-img-wrap{width:100%;height:270px;border-radius:12px;overflow:hidden;margin-bottom:14px;background:linear-gradient(135deg,#111118,#0d0d14);position:relative;}
+        .card-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94);}
+        .result-card:hover .card-img-wrap img{transform:scale(1.08);}
+        .result-title{font-size:15px;font-weight:600;color:#f0f0f0;margin-bottom:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .result-author{font-size:13px;color:#00e68a;font-weight:500;margin-bottom:12px;}
+        .xai-reasons{margin-top:8px;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.05);}
+        .xai-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#00e68a;margin-bottom:6px;}
+        .xai-reasons ul{list-style:none;}
+        .xai-reasons li{font-size:11px;color:#999;padding:2px 0;line-height:1.4;}
+        .wish-btn{width:100%;margin-top:10px;padding:8px;font-size:12px;font-weight:600;border-radius:10px;cursor:pointer;border:1px solid rgba(0,230,138,0.15);background:rgba(0,230,138,0.05);color:#00e68a;font-family:'Inter',sans-serif;transition:all 0.3s;}
+        .wish-btn:hover{background:rgba(0,230,138,0.1);border-color:rgba(0,230,138,0.3);}
+        .wish-btn.wishlisted{background:rgba(248,113,113,0.06);border-color:rgba(248,113,113,0.18);color:#f87171;}
+        .wish-btn.wishlisted:hover{background:rgba(248,113,113,0.12);}
+
+        .empty-state{text-align:center;padding:80px 20px;color:#444;position:relative;z-index:1;}
+        .empty-state .icon{font-size:60px;margin-bottom:16px;}
+        .empty-state h2{font-size:22px;font-weight:700;color:#666;margin-bottom:10px;}
+        .empty-state p{font-size:15px;margin-bottom:24px;line-height:1.6;}
+        .empty-state a{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00e68a,#00b4d8);color:#0a0a0f;text-decoration:none;border-radius:14px;font-weight:700;font-size:15px;transition:all 0.3s;}
+        .empty-state a:hover{transform:translateY(-2px);box-shadow:0 14px 44px rgba(0,230,138,0.2);}
+        .toast{position:fixed;bottom:30px;right:30px;z-index:1000;padding:14px 24px;border-radius:14px;font-size:14px;font-weight:600;backdrop-filter:blur(20px);animation:toastIn 0.4s ease;display:none;}
+        .toast.success{background:rgba(0,230,138,0.1);border:1px solid rgba(0,230,138,0.2);color:#00e68a;}
+        @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+        @media(max-width:768px){.hero h1{font-size:36px;}.results-grid{grid-template-columns:repeat(2,1fr);padding:0 16px 60px;gap:14px;}}
+    </style>
+</head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<nav id="mainNav">
+    <a class="nav-brand" href="/">📚 BOOKIFY</a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/recommend">Recommend</a></li>
+        <li><a href="/mood">Mood</a></li>
+        <li><a href="/for_you" class="active">For You</a></li>
+        <li><a href="/multimodal">Multi-Modal</a></li>
+    </ul>
+    {% if user %}
+    <div class="nav-right">
+        <a href="/profile" class="nav-avatar">{{ user.name[0].upper() }}</a>
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+    {% endif %}
+    <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+    <a href="/">🏠 Home</a>
+    <a href="/recommend">🔍 Recommend</a>
+    <a href="/mood">😊 Mood</a>
+    <a href="/for_you" class="active">🎯 For You</a>
+    <a href="/multimodal">🧬 Multi-Modal</a>
+    <a href="/profile">👤 Profile</a>
+    <a href="/logout" style="color:#f87171;">↩ Logout</a>
+</div>
+
+<section class="hero">
+    <h1>🎯 For You</h1>
+    {% if has_history %}
+    <p>Personalized picks based on your reading history</p>
+    {% if inferred_genres %}
+    <div class="genre-pills">
+        {% for g in inferred_genres %}<span class="genre-pill">{{ g }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <p>Start exploring books to get personalized recommendations</p>
+    {% endif %}
+</section>
+
+{% if has_history and books %}
+<div class="results-grid" id="resultsGrid">
+    {% for book in books %}
+    <div class="result-card" style="animation-delay:{{ loop.index0 * 0.07 }}s">
+        <div class="card-img-wrap">
+            <img src="{{ book[2] }}" alt="{{ book[0] }}" loading="lazy"
+                 onerror="imgError(this, '{{ book[2] }}')">
+        </div>
+        <div class="result-title">{{ book[0] }}</div>
+        <div class="result-author">{{ book[1] }}</div>
+        {% if book[3] %}
+        <div class="xai-reasons">
+            <div class="xai-label">Why recommended</div>
+            <ul>{% for r in book[3] %}<li>{{ r }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        <button class="wish-btn" onclick="toggleWishlist(this,'{{ book[0]|replace("'","\\'") }}','{{ book[1]|replace("'","\\'") }}','{{ book[2] }}')">♡ Save to Wishlist</button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">🎯</div>
+    <h2>No recommendations yet</h2>
+    <p>Search for a few books you enjoy on the Recommend page — we'll use your history to suggest personalized reads.</p>
+    <a href="/recommend">🔍 Find Books to Read</a>
+</div>
+{% endif %}
+
+<div class="toast" id="toast"></div>
+<script>
+const NO_COVER_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%230d0d14'/%3E%3Crect x='1' y='1' width='198' height='278' rx='4' fill='none' stroke='%23ffffff0f' stroke-width='1'/%3E%3Ctext x='100' y='120' font-family='Georgia,serif' font-size='48' text-anchor='middle' fill='%2300e68a' opacity='0.25'%3E📚%3C/text%3E%3Ctext x='100' y='165' font-family='Inter,sans-serif' font-size='11' font-weight='600' text-anchor='middle' fill='%23ffffff33' letter-spacing='2'%3ENO COVER%3C/text%3E%3C/svg%3E";
+function imgError(img, origUrl) {
+    if (img.dataset.failed) {
+        img.src = NO_COVER_SVG;
+        img.onerror = null;
+        return;
+    }
+    const match = origUrl && origUrl.match(/\/P\/([A-Z0-9]+)\./i);
+    if (match && match[1]) {
+        img.dataset.failed = "1";
+        img.src = `https://covers.openlibrary.org/b/isbn/${match[1]}-M.jpg`;
+    } else {
+        img.src = NO_COVER_SVG;
+        img.onerror = null;
+    }
+}
+(function(){const c=document.getElementById('particleCanvas'),x=c.getContext('2d');let p=[];const N=45;function r(){c.width=window.innerWidth;c.height=window.innerHeight;}r();window.addEventListener('resize',r);class P{constructor(){this.reset();}reset(){this.x=Math.random()*c.width;this.y=Math.random()*c.height;this.s=Math.random()*2+.5;this.sx=(Math.random()-.5)*.3;this.sy=(Math.random()-.5)*.3;this.o=Math.random()*.25+.05;this.col=Math.random()>.5?'0,230,138':'0,180,216';}update(){this.x+=this.sx;this.y+=this.sy;if(this.x<0||this.x>c.width)this.sx*=-1;if(this.y<0||this.y>c.height)this.sy*=-1;}draw(){x.beginPath();x.arc(this.x,this.y,this.s,0,Math.PI*2);x.fillStyle=`rgba(${this.col},${this.o})`;x.fill();}}
+for(let i=0;i<N;i++)p.push(new P());function a(){x.clearRect(0,0,c.width,c.height);p.forEach(q=>{q.update();q.draw();});requestAnimationFrame(a);}a();})();
+window.addEventListener('scroll',()=>document.getElementById('mainNav').classList.toggle('scrolled',window.scrollY>20));
+document.getElementById('hamburger').addEventListener('click',()=>document.getElementById('mobileMenu').classList.toggle('open'));
+
+function toggleWishlist(btn, title, author, image){
+    const isWishlisted=btn.classList.contains('wishlisted');
+    const endpoint=isWishlisted?'/wishlist/remove':'/wishlist/add';
+    const body=isWishlisted?{title}:{title,author,image};
+    fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='added'){btn.classList.add('wishlisted');btn.textContent='♥ Wishlisted';showToast('Added to wishlist!');}
+            else if(d.status==='removed'){btn.classList.remove('wishlisted');btn.textContent='♡ Save to Wishlist';showToast('Removed from wishlist');}
+        });
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.className='toast success';t.style.display='block';setTimeout(()=>{t.style.opacity='0';setTimeout(()=>{t.style.display='none';t.style.opacity='1';},400);},3000);}
+</script>
+</body>
+</html>

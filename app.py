@@ -74,6 +74,14 @@ else:
 all_titles = list(pt.index)
 title_to_index = {title: i for i, title in enumerate(pt.index)}
 
+# Build expanded searchable titles from pt + genre_map (1M+)
+all_searchable_titles_set = set(all_titles)
+if genre_available:
+    all_searchable_titles_set.update(genre_map.keys())
+all_searchable_titles_sorted = sorted(all_searchable_titles_set, key=str.lower)
+all_searchable_titles_lower = [(t.lower(), t) for t in all_searchable_titles_sorted]
+print(f"\u2705 Searchable titles pool: {len(all_searchable_titles_sorted)} books")
+
 # Pre-compute genre index arrays for fast vectorized scoring
 genre_index_cache = {}
 if genre_available:
@@ -97,11 +105,11 @@ init_security(app)
 from auth import (
     create_user, verify_user, get_user_by_email, get_user_by_google_id,
     login_user, logout_user, get_current_user, login_required, admin_required,
-    list_users
+    list_users, add_to_wishlist, remove_from_wishlist, get_wishlist, is_wishlisted,
+    add_to_history, get_reading_history, remove_from_history, get_history_titles,
+    rate_book, get_user_rating, get_user_ratings,
+    save_genre_preferences, get_genre_preferences, has_completed_onboarding
 )
-
-# In-memory reading history (per-session fallback; primary storage is localStorage on client)
-reading_history = {}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -144,7 +152,7 @@ def signup_page():
         if error:
             return render_template('signup.html', error=error, google_client_id=GOOGLE_CLIENT_ID)
         login_user(user)
-        return redirect('/')
+        return redirect('/onboarding')
     return render_template('signup.html', google_client_id=GOOGLE_CLIENT_ID)
 
 
@@ -266,6 +274,7 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
     ranked = np.argsort(centrality)[::-1]
 
     genre_total = len(genre_books.get(genre_name, []))
+    popular_titles = set(popular_df['Book-Title'].values)
 
     data = []
     for rank_num, rank_pos in enumerate(ranked[:count]):
@@ -274,19 +283,49 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
         if title in book_info_lookup:
             info = book_info_lookup[title]
             image = info['image']
+            author = info.get('author', 'Unknown Author')
 
-            # Build explanations
+            # Build varied explanations
             reasons = []
             if extra_reasons:
                 reasons.extend(extra_reasons)
-            reasons.append(f"📂 Top-ranked in {genre_name} ({genre_total:,} books)")
-            score_pct = centrality[rank_pos] / max_centrality if max_centrality > 0 else 0
-            if score_pct > 0.7:
-                reasons.append(f"🔥 High relevance score ({score_pct:.0%})")
-            elif score_pct > 0.4:
-                reasons.append(f"⭐ Good relevance score ({score_pct:.0%})")
 
-            data.append([title, info['author'], image, reasons])
+            score_pct = centrality[rank_pos] / max_centrality if max_centrality > 0 else 0
+
+            # 1) Rank-specific reason (varies by position)
+            if rank_num == 0:
+                reasons.append(f"🏆 #1 most representative {genre_name} book")
+            elif rank_num <= 2:
+                reasons.append(f"🥇 Top {rank_num + 1} in {genre_name} ({genre_total:,} books analyzed)")
+            elif rank_num <= 4:
+                reasons.append(f"📊 Top {rank_num + 1} by reader pattern analysis")
+            else:
+                reasons.append(f"📂 Ranked #{rank_num + 1} in {genre_name}")
+
+            # 2) Author info
+            if author and author != 'Unknown Author':
+                reasons.append(f"✍️ By {author}")
+
+            # 3) Cross-genre signal
+            if genre_available:
+                book_genres = genre_map.get(title, [])
+                other_genres = [g for g in book_genres if g != genre_name and g != 'Fiction']
+                if other_genres:
+                    reasons.append(f"🔗 Also in: {', '.join(other_genres[:2])}")
+
+            # 4) Popularity check
+            if title in popular_titles:
+                reasons.append("🔥 Popular among readers")
+
+            # 5) Centrality/relevance score
+            if score_pct > 0.85:
+                reasons.append(f"💎 Exceptional fit ({score_pct:.0%} relevance)")
+            elif score_pct > 0.7:
+                reasons.append(f"🔥 Strong fit ({score_pct:.0%} relevance)")
+            elif score_pct > 0.5:
+                reasons.append(f"⭐ Good fit ({score_pct:.0%} relevance)")
+
+            data.append([title, author, image, reasons])
 
     return data, genre_name
 
@@ -295,13 +334,17 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
 @login_required
 def index():
     user = get_current_user()
+    total_users_count = len(list_users(limit=10000))
     return render_template('index.html',
                            book_name = list(popular_df['Book-Title'].values),
                            author=list(popular_df['Book-Author'].values),
                            image=list(popular_df['Image-URL-M'].values),
                            votes=list(popular_df['num_ratings'].values),
                            rating=list(popular_df['avg_rating'].values),
-                           user=user
+                           user=user,
+                           total_books=271360,  # Scale of Book-Crossing dataset
+                           total_genres=len(all_genres) if genre_available else 23,
+                           total_users=278858 + total_users_count # Base dataset users + local signups
                            )
 
 @app.route('/recommend')
@@ -374,11 +417,25 @@ def autocomplete():
         # Limit genre suggestions
         suggestions = suggestions[:3]
 
-    # Substring match for book titles
-    title_matches = [t for t in all_titles if query in t.lower()][:10]
-    suggestions.extend(title_matches)
+    # Efficient prefix + substring search on 1M+ titles
+    import bisect
+    # Binary search for prefix matches
+    lo = bisect.bisect_left(all_searchable_titles_lower, (query,))
+    prefix_matches = []
+    for idx in range(lo, min(lo + 20, len(all_searchable_titles_lower))):
+        lower_t, orig_t = all_searchable_titles_lower[idx]
+        if lower_t.startswith(query):
+            prefix_matches.append(orig_t)
+        else:
+            break
+    suggestions.extend(prefix_matches[:8])
 
-    # If few matches, supplement with fuzzy matches
+    # Substring match on collaborative-filtering titles (5K — fast)
+    if len(suggestions) < 8:
+        substr = [t for t in all_titles if query in t.lower() and t not in suggestions][:8]
+        suggestions.extend(substr)
+
+    # If few matches, supplement with fuzzy matches on CF titles
     if len(suggestions) < 5:
         fuzzy = get_close_matches(query, all_titles, n=10, cutoff=0.4)
         for f in fuzzy:
@@ -426,6 +483,18 @@ def recommend():
             matches = np.where(pt.index == user_input)[0]
 
     if len(matches) == 0:
+        # Title not in collaborative-filtering set — try genre-based recommendations
+        if genre_available and user_input in genre_map:
+            book_genres = genre_map[user_input]
+            if book_genres:
+                primary_genre = book_genres[0]
+                data, matched_genre = get_genre_recommendations(primary_genre, mode, count=8,
+                    extra_reasons=[f'📚 Related to "{user_input}"'])
+                used_mode = 'ai' if (mode == 'ai' and ncf_available) else 'classic'
+                return render_template('recommend.html', data=data, genre_mode=True,
+                                       matched_genre=f'Books like "{user_input}" ({matched_genre})', mode=used_mode,
+                                       ncf_available=ncf_available, genre_available=genre_available,
+                                       all_genres=all_genres, genre_count=len(genre_books.get(primary_genre, [])))
         return render_template('recommend.html', data=[], error=f'No book found matching "{request.form.get("user_input")}". Try a different title or search by genre.',
                                ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
 
@@ -527,29 +596,194 @@ def voice_search():
 @app.route('/history', methods=['GET', 'POST'])
 @login_required
 def history_route():
-    """GET: return reading history genres. POST: add a book to history."""
+    """GET: return reading history genres. POST: add a book to history (DB-backed)."""
+    user = get_current_user()
     if request.method == 'POST':
         data = request.get_json()
         title = data.get('title', '').strip()
+        author = data.get('author', '').strip()
+        image = data.get('image', '').strip()
         if title:
-            hist = session.get('history', [])
-            if title not in hist:
-                hist.append(title)
-                hist = hist[-20:]  # keep last 20
-                session['history'] = hist
-            # Return genres for this title
+            add_to_history(user['id'], title, author, image)
             genres = genre_map.get(title, []) if genre_available else []
             return jsonify({'status': 'added', 'title': title, 'genres': genres})
         return jsonify({'status': 'error', 'message': 'No title provided'})
 
     # GET: return history with genre info
-    hist = session.get('history', [])
+    history_rows = get_reading_history(user['id'])
     history_data = []
-    for title in hist:
-        genres = genre_map.get(title, []) if genre_available else []
-        history_data.append({'title': title, 'genres': genres})
+    for row in history_rows:
+        genres = genre_map.get(row['book_title'], []) if genre_available else []
+        history_data.append({'title': row['book_title'], 'genres': genres})
     return jsonify({'history': history_data})
 
+
+@app.route('/history/remove', methods=['POST'])
+@login_required
+def history_remove():
+    """Remove a book from reading history."""
+    user = get_current_user()
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({'status': 'error', 'message': 'No title provided'})
+    remove_from_history(user['id'], title)
+    return jsonify({'status': 'removed', 'title': title})
+
+
+# ══════════════════════════════════════════════════════════════════
+# WISHLIST ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/wishlist', methods=['GET'])
+@login_required
+def wishlist_page():
+    user = get_current_user()
+    books = get_wishlist(user['id'])
+    return jsonify({'wishlist': books})
+
+
+@app.route('/wishlist/add', methods=['POST'])
+@login_required
+def wishlist_add():
+    user = get_current_user()
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    author = data.get('author', '').strip()
+    image = data.get('image', '').strip()
+    if not title:
+        return jsonify({'status': 'error', 'message': 'No title provided'})
+    ok, err = add_to_wishlist(user['id'], title, author, image)
+    if ok:
+        return jsonify({'status': 'added', 'title': title})
+    return jsonify({'status': 'error', 'message': err})
+
+
+@app.route('/wishlist/remove', methods=['POST'])
+@login_required
+def wishlist_remove():
+    user = get_current_user()
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({'status': 'error', 'message': 'No title provided'})
+    remove_from_wishlist(user['id'], title)
+    return jsonify({'status': 'removed', 'title': title})
+
+
+@app.route('/wishlist/check')
+@login_required
+def wishlist_check():
+    user = get_current_user()
+    title = request.args.get('title', '').strip()
+    return jsonify({'wishlisted': is_wishlisted(user['id'], title)})
+
+
+# ══════════════════════════════════════════════════════════════════
+# PROFILE & FOR YOU ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/profile')
+@login_required
+def profile_page():
+    user = get_current_user()
+    wishlist_books = get_wishlist(user['id'])
+    history_rows = get_reading_history(user['id'])
+    history_data = []
+    for row in history_rows:
+        genres = genre_map.get(row['book_title'], []) if genre_available else []
+        history_data.append({
+            'title': row['book_title'],
+            'genres': genres,
+            'author': row.get('book_author', 'Unknown Author'),
+            'image': row.get('book_image', '')
+        })
+    user_ratings = get_user_ratings(user['id'])
+    # Enrich ratings with book info (image, author)
+    for r in user_ratings:
+        info = book_info_lookup.get(r['book_title'], {})
+        r['author'] = info.get('author', 'Unknown Author')
+        r['image'] = info.get('image', '')
+    return render_template('profile.html',
+                           user=user,
+                           wishlist=wishlist_books,
+                           history=history_data,
+                           ratings=user_ratings)
+
+
+@app.route('/for_you')
+@login_required
+def for_you_page():
+    user = get_current_user()
+    hist = get_history_titles(user['id'])
+
+    # Aggregate genres from reading history
+    genre_votes = {}
+    for title in hist:
+        book_genres = genre_map.get(title, []) if genre_available else []
+        for g in book_genres:
+            genre_votes[g] = genre_votes.get(g, 0) + 1
+
+    # Fallback to onboarding preferences if no reading history
+    if not genre_votes:
+        prefs = get_genre_preferences(user['id'])
+        if prefs:
+            for g in prefs:
+                genre_votes[g] = genre_votes.get(g, 0) + 1
+
+    if not genre_votes:
+        return render_template('for_you.html', user=user, books=[], inferred_genres=[], has_history=False)
+
+    sorted_genres = sorted(genre_votes.items(), key=lambda x: x[1], reverse=True)
+    top_genres = [g for g, _ in sorted_genres[:4]]
+
+    all_books = []
+    seen = set()
+    for gname in top_genres:
+        reason = '🏗️ Based on your reading history' if hist else '✨ Based on your genre preferences'
+        recs, _ = get_genre_recommendations(gname, 'classic', count=6,
+                                             extra_reasons=[reason])
+        for book in recs:
+            if book[0] not in seen:
+                seen.add(book[0])
+                all_books.append(book)
+
+    return render_template('for_you.html', user=user, books=all_books[:12],
+                           inferred_genres=top_genres, has_history=True)
+
+
+# ══════════════════════════════════════════════════════════════════
+# RATING ROUTES
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/rate', methods=['POST'])
+@login_required
+def rate_route():
+    """Rate a book 1-5 stars."""
+    user = get_current_user()
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    rating = data.get('rating')
+    if not title or rating is None:
+        return jsonify({'status': 'error', 'message': 'Title and rating required'})
+    try:
+        rating = int(rating)
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Rating must be a number'})
+    ok, err = rate_book(user['id'], title, rating)
+    if ok:
+        return jsonify({'status': 'rated', 'title': title, 'rating': rating})
+    return jsonify({'status': 'error', 'message': err})
+
+
+@app.route('/rating/check')
+@login_required
+def rating_check():
+    """Get the current user's rating for a book."""
+    user = get_current_user()
+    title = request.args.get('title', '').strip()
+    rating = get_user_rating(user['id'], title)
+    return jsonify({'rating': rating})
 
 @app.route('/multimodal_recommend', methods=['POST'])
 @login_required
@@ -659,6 +893,81 @@ def multimodal_recommend():
     })
 
 # ══════════════════════════════════════════════════════════════════
+# ONBOARDING
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding_page():
+    """Genre quiz for new users. GET shows the picker, POST saves preferences."""
+    user = get_current_user()
+
+    if request.method == 'POST':
+        data = request.get_json()
+        genres = data.get('genres', [])
+        if not genres or len(genres) < 3:
+            return jsonify({'status': 'error', 'message': 'Please pick at least 3 genres'})
+        # Validate genres
+        valid = [g for g in genres if g in genre_books] if genre_available else []
+        if len(valid) < 3:
+            return jsonify({'status': 'error', 'message': 'Please pick at least 3 valid genres'})
+        ok, err = save_genre_preferences(user['id'], valid)
+        if ok:
+            return jsonify({'status': 'saved', 'redirect': '/'})
+        return jsonify({'status': 'error', 'message': err})
+
+    # GET — if already completed, redirect home
+    if has_completed_onboarding(user['id']):
+        return redirect('/')
+
+    return render_template('onboarding.html', user=user,
+                           all_genres=all_genres if genre_available else [])
+
+
+# ══════════════════════════════════════════════════════════════════
+# BOOK DETAILS (Open Library API Proxy)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/book/details')
+@login_required
+def book_details():
+    """Fetch book description from Open Library Search API."""
+    import requests as http_req
+    title = request.args.get('title', '').strip()
+    if not title:
+        return jsonify({'error': 'No title provided'})
+
+    try:
+        resp = http_req.get(
+            'https://openlibrary.org/search.json',
+            params={'title': title, 'limit': 1, 'fields': 'first_sentence,first_publish_year,number_of_pages_median,subject,isbn'},
+            timeout=5
+        )
+        data = resp.json()
+        docs = data.get('docs', [])
+        if not docs:
+            return jsonify({'description': None, 'year': None, 'pages': None, 'subjects': []})
+
+        doc = docs[0]
+        # Get description from first_sentence
+        first_sentence = doc.get('first_sentence', [])
+        description = first_sentence[0] if first_sentence else None
+
+        subjects = doc.get('subject', [])[:5]
+        year = doc.get('first_publish_year')
+        pages = doc.get('number_of_pages_median')
+
+        return jsonify({
+            'description': description,
+            'year': year,
+            'pages': pages,
+            'subjects': subjects
+        })
+    except Exception:
+        return jsonify({'description': None, 'year': None, 'pages': None, 'subjects': []})
+
+
+# ══════════════════════════════════════════════════════════════════
 # ADMIN ROUTES  (RBAC protected)
 # ══════════════════════════════════════════════════════════════════
 
@@ -670,8 +979,7 @@ def admin_dashboard():
     user = get_current_user()
     users = list_users(limit=50)
     events = get_recent_events(limit=30)
-    return render_template('index.html', user=user,
-                           books=popular_df[popular_df.columns[0:1]].values.tolist())
+    return render_template('admin.html', user=user, users=users, events=events)
 
 
 @app.route('/admin/users')

@@ -47,13 +47,13 @@ def get_db():
 
 def init_db():
     """
-    Create / migrate the users table.
+    Create / migrate the users table and wishlist table.
     SECURITY: Adds role, failed_attempts, and locked_until columns
     for RBAC and brute-force protection.
     """
     conn = get_db()
 
-    # Create table if it doesn't exist (with new columns)
+    # Create users table if it doesn't exist (with new columns)
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +65,59 @@ def init_db():
             failed_attempts INTEGER NOT NULL DEFAULT 0,
             locked_until TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Create wishlist table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS wishlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            book_title TEXT NOT NULL,
+            book_author TEXT NOT NULL DEFAULT '',
+            book_image TEXT NOT NULL DEFAULT '',
+            added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, book_title),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # Create reading_history table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS reading_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            book_title TEXT NOT NULL,
+            book_author TEXT NOT NULL DEFAULT '',
+            book_image TEXT NOT NULL DEFAULT '',
+            read_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, book_title),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # Create ratings table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS ratings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            book_title TEXT NOT NULL,
+            rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+            rated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, book_title),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # Create user_preferences table (for onboarding genre quiz)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            genre TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, genre),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
 
@@ -82,7 +135,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("✅ User database initialized (with RBAC + lockout support)")
+    print("✅ User database initialized (with RBAC + lockout + wishlist + history + ratings support)")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -439,6 +492,225 @@ def unlock_account(email):
     """Manually unlock a locked account."""
     _reset_failed_attempts(email)
     return True
+
+
+# ══════════════════════════════════════════════════════════════════
+# WISHLIST
+# ══════════════════════════════════════════════════════════════════
+
+def add_to_wishlist(user_id, book_title, book_author='', book_image=''):
+    """Add a book to a user's wishlist. Returns (success, error)."""
+    conn = get_db()
+    try:
+        conn.execute(
+            'INSERT OR IGNORE INTO wishlist (user_id, book_title, book_author, book_image) VALUES (?, ?, ?, ?)',
+            (user_id, book_title, book_author, book_image)
+        )
+        conn.commit()
+        added = conn.execute(
+            'SELECT COUNT(*) FROM wishlist WHERE user_id=? AND book_title=?',
+            (user_id, book_title)
+        ).fetchone()[0]
+        conn.close()
+        return True, None
+    except Exception as e:
+        conn.close()
+        return False, str(e)
+
+
+def remove_from_wishlist(user_id, book_title):
+    """Remove a book from a user's wishlist."""
+    conn = get_db()
+    conn.execute(
+        'DELETE FROM wishlist WHERE user_id=? AND book_title=?',
+        (user_id, book_title)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_wishlist(user_id):
+    """Return the user's wishlist as a list of dicts."""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT book_title, book_author, book_image, added_at '
+        'FROM wishlist WHERE user_id=? ORDER BY added_at DESC',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def is_wishlisted(user_id, book_title):
+    """Check if a specific book is in the user's wishlist."""
+    conn = get_db()
+    row = conn.execute(
+        'SELECT 1 FROM wishlist WHERE user_id=? AND book_title=?',
+        (user_id, book_title)
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+# ══════════════════════════════════════════════════════════════════
+# READING HISTORY
+# ══════════════════════════════════════════════════════════════════
+
+def add_to_history(user_id, book_title, book_author='', book_image=''):
+    """Add a book to a user's reading history. Upserts (updates timestamp if exists)."""
+    conn = get_db()
+    try:
+        conn.execute(
+            '''INSERT INTO reading_history (user_id, book_title, book_author, book_image)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, book_title) DO UPDATE SET read_at = CURRENT_TIMESTAMP''',
+            (user_id, book_title, book_author, book_image)
+        )
+        conn.commit()
+        conn.close()
+        return True, None
+    except Exception as e:
+        conn.close()
+        return False, str(e)
+
+
+def get_reading_history(user_id, limit=50):
+    """Return the user's reading history as a list of dicts, most recent first."""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT book_title, book_author, book_image, read_at '
+        'FROM reading_history WHERE user_id=? ORDER BY read_at DESC LIMIT ?',
+        (user_id, limit)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def remove_from_history(user_id, book_title):
+    """Remove a book from a user's reading history."""
+    conn = get_db()
+    conn.execute(
+        'DELETE FROM reading_history WHERE user_id=? AND book_title=?',
+        (user_id, book_title)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_history_titles(user_id):
+    """Return just the titles from reading history (for genre analysis)."""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT book_title FROM reading_history WHERE user_id=? ORDER BY read_at DESC',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return [r['book_title'] for r in rows]
+
+
+# ══════════════════════════════════════════════════════════════════
+# RATINGS
+# ══════════════════════════════════════════════════════════════════
+
+def rate_book(user_id, book_title, rating):
+    """Rate a book 1-5. Upserts (updates rating if already rated)."""
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return False, 'Rating must be an integer between 1 and 5.'
+    conn = get_db()
+    try:
+        conn.execute(
+            '''INSERT INTO ratings (user_id, book_title, rating)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, book_title) DO UPDATE SET rating = ?, rated_at = CURRENT_TIMESTAMP''',
+            (user_id, book_title, rating, rating)
+        )
+        conn.commit()
+        conn.close()
+        return True, None
+    except Exception as e:
+        conn.close()
+        return False, str(e)
+
+
+def get_user_rating(user_id, book_title):
+    """Get a user's rating for a specific book. Returns int or None."""
+    conn = get_db()
+    row = conn.execute(
+        'SELECT rating FROM ratings WHERE user_id=? AND book_title=?',
+        (user_id, book_title)
+    ).fetchone()
+    conn.close()
+    return row['rating'] if row else None
+
+
+def get_user_ratings(user_id, limit=100):
+    """Return all books rated by a user, most recent first."""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT book_title, rating, rated_at '
+        'FROM ratings WHERE user_id=? ORDER BY rated_at DESC LIMIT ?',
+        (user_id, limit)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_book_avg_rating(book_title):
+    """Get the average user rating for a book. Returns (avg, count) or (None, 0)."""
+    conn = get_db()
+    row = conn.execute(
+        'SELECT AVG(rating) as avg_rating, COUNT(*) as count '
+        'FROM ratings WHERE book_title=?',
+        (book_title,)
+    ).fetchone()
+    conn.close()
+    if row and row['count'] > 0:
+        return round(row['avg_rating'], 1), row['count']
+    return None, 0
+
+
+# ══════════════════════════════════════════════════════════════════
+# USER PREFERENCES (Onboarding)
+# ══════════════════════════════════════════════════════════════════
+
+def save_genre_preferences(user_id, genres):
+    """Save a list of genre preferences for a user (replaces existing)."""
+    conn = get_db()
+    try:
+        conn.execute('DELETE FROM user_preferences WHERE user_id=?', (user_id,))
+        for genre in genres:
+            conn.execute(
+                'INSERT OR IGNORE INTO user_preferences (user_id, genre) VALUES (?, ?)',
+                (user_id, genre.strip())
+            )
+        conn.commit()
+        conn.close()
+        return True, None
+    except Exception as e:
+        conn.close()
+        return False, str(e)
+
+
+def get_genre_preferences(user_id):
+    """Get a user's saved genre preferences."""
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT genre FROM user_preferences WHERE user_id=? ORDER BY created_at',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return [r['genre'] for r in rows]
+
+
+def has_completed_onboarding(user_id):
+    """Check if a user has completed the onboarding quiz."""
+    conn = get_db()
+    count = conn.execute(
+        'SELECT COUNT(*) FROM user_preferences WHERE user_id=?',
+        (user_id,)
+    ).fetchone()[0]
+    conn.close()
+    return count > 0
 
 
 # Initialize database on import

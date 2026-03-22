@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh;overflow-x:hidden;}
+        #particleCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+        nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(10,10,15,0.7);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.06);transition:box-shadow 0.3s;}
+        nav.scrolled{box-shadow:0 4px 30px rgba(0,0,0,0.4);}
+        .nav-brand{font-size:20px;font-weight:700;background:linear-gradient(135deg,#f87171,#fb923c);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;}
+        .nav-links{display:flex;gap:4px;list-style:none;}
+        .nav-links a{text-decoration:none;color:#888;font-size:14px;font-weight:500;padding:8px 18px;border-radius:10px;transition:all 0.3s;}
+        .nav-links a:hover{color:#fff;background:rgba(255,255,255,0.06);}
+        .nav-links a.active{color:#fff;background:rgba(248,113,113,0.1);}
+        .nav-right{display:flex;align-items:center;gap:14px;}
+        .nav-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#f87171,#fb923c);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0a0a0f;text-decoration:none;}
+        .logout-btn{font-size:12px;color:#555;text-decoration:none;padding:6px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.3s;font-weight:600;}
+        .logout-btn:hover{color:#f87171;border-color:rgba(248,113,113,0.2);}
+        .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;}
+        .hamburger span{display:block;width:22px;height:2px;background:#888;border-radius:2px;}
+        .mobile-menu{display:none;position:absolute;top:64px;left:0;right:0;background:rgba(10,10,15,0.97);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px;z-index:99;}
+        .mobile-menu.open{display:block;}
+        .mobile-menu a{display:block;padding:12px 16px;color:#888;font-size:15px;font-weight:500;text-decoration:none;border-radius:10px;margin-bottom:4px;}
+        .mobile-menu a:hover{color:#fff;background:rgba(248,113,113,0.08);}
+        @media(max-width:768px){nav{padding:0 20px;}.nav-links{display:none;}.hamburger{display:flex;}}
+        @keyframes cardReveal{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+
+        .page-header{padding:60px 40px 30px;position:relative;z-index:1;}
+        .admin-badge{display:inline-block;padding:5px 16px;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);color:#f87171;border-radius:20px;margin-bottom:16px;}
+        .page-title{font-size:40px;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(135deg,#fff,#ccc);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+        .stats-row{max-width:1200px;margin:0 auto 40px;padding:0 40px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;position:relative;z-index:1;}
+        .stat-card{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:24px;transition:all 0.3s;animation:cardReveal 0.5s ease forwards;}
+        .stat-card:hover{transform:translateY(-4px);box-shadow:0 20px 56px rgba(0,0,0,0.2);}
+        .stat-icon{font-size:28px;margin-bottom:10px;}
+        .stat-number{font-size:32px;font-weight:800;color:#fff;margin-bottom:4px;}
+        .stat-label{font-size:12px;color:#555;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;}
+
+        .section{max-width:1200px;margin:0 auto 50px;padding:0 40px;position:relative;z-index:1;}
+        .section-title{font-size:18px;font-weight:700;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+        .section-title span{font-size:13px;font-weight:500;color:#555;}
+        .table-wrap{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden;overflow-x:auto;}
+        table{width:100%;border-collapse:collapse;}
+        th{padding:14px 20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#555;text-align:left;border-bottom:1px solid rgba(255,255,255,0.05);}
+        td{padding:14px 20px;font-size:14px;color:#ccc;border-bottom:1px solid rgba(255,255,255,0.03);}
+        tr:last-child td{border-bottom:none;}
+        tr:hover td{background:rgba(255,255,255,0.02);}
+        .badge{display:inline-block;padding:3px 10px;font-size:11px;font-weight:700;border-radius:8px;letter-spacing:0.5px;}
+        .badge-admin{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);color:#f87171;}
+        .badge-user{background:rgba(0,230,138,0.08);border:1px solid rgba(0,230,138,0.12);color:#00e68a;}
+        .badge-locked{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:#fbbf24;}
+        .badge-event{background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);color:#a78bfa;}
+        .empty-row{text-align:center;color:#444;padding:40px 0;}
+        @media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr);}.page-header,.section{padding-left:20px;padding-right:20px;}th,td{padding:10px 12px;}}
+    </style>
+</head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<nav id="mainNav">
+    <a class="nav-brand" href="/">⚡ BOOKIFY ADMIN</a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/recommend">Recommend</a></li>
+        <li><a href="/admin" class="active">Dashboard</a></li>
+        <li><a href="/admin/users">Users API</a></li>
+        <li><a href="/admin/audit">Audit API</a></li>
+    </ul>
+    {% if user %}
+    <div class="nav-right">
+        <a href="/profile" class="nav-avatar">{{ user.name[0].upper() }}</a>
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+    {% endif %}
+    <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+    <a href="/">🏠 Home</a>
+    <a href="/admin" class="active" style="color:#f87171;">⚡ Admin Dashboard</a>
+    <a href="/logout" style="color:#f87171;">↩ Logout</a>
+</div>
+
+<div class="page-header">
+    <div class="admin-badge">⚡ Admin Access</div>
+    <h1 class="page-title">Dashboard</h1>
+</div>
+
+<div class="stats-row">
+    <div class="stat-card" style="animation-delay:0s">
+        <div class="stat-icon">👥</div>
+        <div class="stat-number">{{ users|length }}</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.05s">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-number">{{ users|selectattr('role','equalto','admin')|list|length }}</div>
+        <div class="stat-label">Admins</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.1s">
+        <div class="stat-icon">🔒</div>
+        <div class="stat-number">{{ users|selectattr('locked_until')|list|length }}</div>
+        <div class="stat-label">Locked Accounts</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.15s">
+        <div class="stat-icon">📋</div>
+        <div class="stat-number">{{ events|length }}</div>
+        <div class="stat-label">Audit Events</div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">👥 Users <span>{{ users|length }} total</span></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Failed Logins</th><th>Status</th><th>Joined</th></tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td style="color:#555;">#{{ u.id }}</td>
+                    <td style="font-weight:600;color:#fff;">{{ u.name }}</td>
+                    <td style="color:#888;">{{ u.email }}</td>
+                    <td><span class="badge {% if u.role=='admin' %}badge-admin{% else %}badge-user{% endif %}">{{ u.role }}</span></td>
+                    <td style="color:{% if u.failed_attempts > 0 %}#fbbf24{% else %}#555{% endif %};">{{ u.failed_attempts }}</td>
+                    <td>{% if u.locked_until %}<span class="badge badge-locked">🔒 Locked</span>{% else %}<span style="color:#00e68a;font-size:12px;font-weight:600;">✓ Active</span>{% endif %}</td>
+                    <td style="color:#555;font-size:13px;">{{ u.created_at[:10] if u.created_at else '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty-row">No users found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">📋 Audit Log <span>{{ events|length }} recent events</span></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Time</th><th>Event</th><th>IP</th><th>Email</th><th>Detail</th></tr>
+            </thead>
+            <tbody>
+                {% for ev in events %}
+                <tr>
+                    <td style="color:#555;font-size:12px;">{{ ev.timestamp[:19] if ev.timestamp else '—' }}</td>
+                    <td><span class="badge badge-event">{{ ev.event_type }}</span></td>
+                    <td style="color:#888;font-size:13px;">{{ ev.ip or '—' }}</td>
+                    <td style="color:#888;font-size:13px;">{{ ev.email or '—' }}</td>
+                    <td style="color:#555;font-size:13px;">{{ ev.detail or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty-row">No audit events yet</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(function(){const c=document.getElementById('particleCanvas'),x=c.getContext('2d');let p=[];const N=35;function r(){c.width=window.innerWidth;c.height=window.innerHeight;}r();window.addEventListener('resize',r);class P{constructor(){this.reset();}reset(){this.x=Math.random()*c.width;this.y=Math.random()*c.height;this.s=Math.random()*2+.5;this.sx=(Math.random()-.5)*.25;this.sy=(Math.random()-.5)*.25;this.o=Math.random()*.2+.04;this.col=Math.random()>.5?'248,113,113':'167,139,250';}update(){this.x+=this.sx;this.y+=this.sy;if(this.x<0||this.x>c.width)this.sx*=-1;if(this.y<0||this.y>c.height)this.sy*=-1;}draw(){x.beginPath();x.arc(this.x,this.y,this.s,0,Math.PI*2);x.fillStyle=`rgba(${this.col},${this.o})`;x.fill();}}
+for(let i=0;i<N;i++)p.push(new P());function a(){x.clearRect(0,0,c.width,c.height);p.forEach(q=>{q.update();q.draw();});requestAnimationFrame(a);}a();})();
+window.addEventListener('scroll',()=>document.getElementById('mainNav').classList.toggle('scrolled',window.scrollY>20));
+document.getElementById('hamburger').addEventListener('click',()=>document.getElementById('mobileMenu').classList.toggle('open'));
+</script>
+</body>
+</html>

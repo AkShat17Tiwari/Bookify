@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOKIFY — Pick Your Genres</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#0a0a0f; color:#e0e0e0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 20px; }
+
+        .onboarding-container { max-width:820px; width:100%; text-align:center; }
+        .ob-title { font-size:36px; font-weight:800; color:#fff; margin-bottom:8px; }
+        .ob-title span { background:linear-gradient(135deg,#00e68a,#00b4d8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .ob-subtitle { font-size:15px; color:#666; margin-bottom:8px; }
+        .ob-counter { font-size:13px; color:#00e68a; font-weight:600; margin-bottom:36px; transition:all 0.3s; }
+        .ob-counter.warn { color:#f59e0b; }
+
+        .genre-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px; margin-bottom:40px; }
+        .genre-card {
+            padding:20px 14px; border-radius:16px; border:1px solid rgba(255,255,255,0.06);
+            background:rgba(255,255,255,0.02); cursor:pointer; transition:all 0.3s ease;
+            display:flex; flex-direction:column; align-items:center; gap:10px;
+            user-select:none; position:relative; overflow:hidden;
+        }
+        .genre-card:hover { border-color:rgba(0,230,138,0.2); background:rgba(0,230,138,0.03); transform:translateY(-2px); }
+        .genre-card.selected {
+            border-color:rgba(0,230,138,0.4); background:rgba(0,230,138,0.08);
+            box-shadow:0 0 20px rgba(0,230,138,0.1);
+        }
+        .genre-card.selected::after {
+            content:'✓'; position:absolute; top:8px; right:10px; font-size:14px;
+            color:#00e68a; font-weight:700;
+        }
+        .genre-icon { font-size:32px; filter:grayscale(0.3); transition:filter 0.3s; }
+        .genre-card.selected .genre-icon { filter:grayscale(0); }
+        .genre-name { font-size:13px; font-weight:600; color:#aaa; transition:color 0.3s; }
+        .genre-card.selected .genre-name { color:#fff; }
+
+        .ob-submit {
+            padding:16px 48px; font-size:16px; font-weight:700; border:none; border-radius:16px;
+            background:linear-gradient(135deg,#00e68a,#00b4d8); color:#0a0a0f;
+            cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.3s;
+            opacity:0.4; pointer-events:none; letter-spacing:0.5px;
+        }
+        .ob-submit.active { opacity:1; pointer-events:auto; }
+        .ob-submit.active:hover { transform:scale(1.04); box-shadow:0 8px 32px rgba(0,230,138,0.25); }
+
+        .ob-skip { display:block; margin-top:16px; font-size:13px; color:#555; text-decoration:none; transition:color 0.3s; }
+        .ob-skip:hover { color:#888; }
+
+        @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        .genre-card { animation:fadeIn 0.4s ease both; }
+
+        @media (max-width:600px) {
+            .ob-title { font-size:26px; }
+            .genre-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
+            .genre-card { padding:16px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="onboarding-container">
+        <div class="ob-title">What do you love to <span>read</span>?</div>
+        <div class="ob-subtitle">Pick at least 3 genres to personalize your recommendations</div>
+        <div class="ob-counter" id="counter">0 selected</div>
+
+        <div class="genre-grid" id="genreGrid">
+            {% set genre_icons = {
+                'Fiction': '📖', 'Literary Fiction': '🎭', 'Classics': '🏛️',
+                'Mystery/Thriller': '🔍', 'Romance': '💕', 'Science Fiction': '🚀',
+                'Fantasy': '🐉', 'Horror': '👻', 'Non-Fiction': '📰',
+                'History': '⏳', 'Biography': '👤', 'Self-Help': '🧠',
+                'Cooking': '🍳', 'Travel': '✈️', 'Young Adult': '🌟',
+                'Children': '🧸', 'Poetry': '✒️', 'Religious/Spiritual': '🕊️',
+                'Humor': '😂', 'Art': '🎨', 'Business': '💼',
+                'Health': '🏥', 'Science': '🔬'
+            } %}
+            {% for genre in all_genres %}
+            <div class="genre-card" onclick="toggleGenre(this, '{{ genre }}')"
+                 style="animation-delay:{{ loop.index0 * 0.04 }}s">
+                <div class="genre-icon">{{ genre_icons.get(genre, '📚') }}</div>
+                <div class="genre-name">{{ genre }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button class="ob-submit" id="submitBtn" onclick="submitGenres()">Continue →</button>
+        <a href="/" class="ob-skip">Skip for now</a>
+    </div>
+
+    <script>
+        const selected = new Set();
+
+        function toggleGenre(el, genre) {
+            if (selected.has(genre)) {
+                selected.delete(genre);
+                el.classList.remove('selected');
+            } else {
+                selected.add(genre);
+                el.classList.add('selected');
+            }
+            updateCounter();
+        }
+
+        function updateCounter() {
+            const n = selected.size;
+            const counter = document.getElementById('counter');
+            counter.textContent = n + ' selected' + (n < 3 ? ' — pick ' + (3 - n) + ' more' : ' ✓');
+            counter.classList.toggle('warn', n < 3);
+            document.getElementById('submitBtn').classList.toggle('active', n >= 3);
+        }
+
+        function submitGenres() {
+            if (selected.size < 3) return;
+            fetch('/onboarding', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({genres: Array.from(selected)})
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'saved') {
+                    window.location.href = d.redirect || '/';
+                } else if (d.message) {
+                    alert(d.message);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

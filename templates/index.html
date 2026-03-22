@@ -537,30 +537,80 @@
             margin-top: 32px;
         }
 
+        /* ---- Hamburger / Mobile nav ---- */
+        .hamburger { display:none; flex-direction:column; gap:5px; cursor:pointer; padding:6px; border-radius:8px; background:none; border:none; }
+        .hamburger span { display:block; width:22px; height:2px; background:#888; border-radius:2px; transition:all 0.3s; }
+        .mobile-menu { display:none; position:absolute; top:64px; left:0; right:0; background:rgba(10,10,15,0.97); backdrop-filter:blur(24px); border-bottom:1px solid rgba(255,255,255,0.06); padding:16px; z-index:99; }
+        .mobile-menu.open { display:block; }
+        .mobile-menu a { display:block; padding:12px 16px; color:#888; font-size:15px; font-weight:500; text-decoration:none; border-radius:10px; margin-bottom:4px; transition:all 0.2s; }
+        .mobile-menu a:hover, .mobile-menu a.active { color:#fff; background:rgba(0,230,138,0.08); }
+
+        /* ---- Nav extras ---- */
+        .nav-right { display:flex; align-items:center; gap:14px; }
+        .nav-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e68a,#00b4d8); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#0a0a0f; text-decoration:none; flex-shrink:0; }
+        .logout-btn { font-size:12px; color:#555; text-decoration:none; padding:6px 14px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; transition:all 0.3s; font-weight:600; }
+        .logout-btn:hover { color:#f87171; border-color:rgba(248,113,113,0.2); }
+
+        /* ---- Wish btn overlay ---- */
+        .wish-btn-overlay { position:absolute; top:10px; right:10px; z-index:5; width:36px; height:36px; border-radius:10px; border:none; background:rgba(10,10,15,0.6); backdrop-filter:blur(8px); color:#888; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; }
+        .wish-btn-overlay:hover { background:rgba(248,113,113,0.15); color:#f87171; transform:scale(1.1); }
+        .wish-btn-overlay.active { color:#f87171; background:rgba(248,113,113,0.15); }
+
+        /* ---- Book Detail Modal ---- */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(12px); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+        .modal-overlay.open { display:flex; }
+        .modal-box { background:#111118; border:1px solid rgba(255,255,255,0.1); border-radius:24px; max-width:560px; width:100%; overflow:hidden; animation:cardReveal 0.35s ease; position:relative; }
+        .modal-top { display:flex; gap:0; }
+        .modal-cover { width:180px; min-height:260px; object-fit:cover; flex-shrink:0; }
+        .modal-info { padding:28px 24px; flex:1; }
+        .modal-title { font-size:19px; font-weight:700; color:#fff; line-height:1.4; margin-bottom:8px; }
+        .modal-author { font-size:14px; color:#00e68a; font-weight:500; margin-bottom:16px; }
+        .modal-stars { font-size:18px; margin-bottom:6px; }
+        .modal-votes { font-size:12px; color:#555; margin-bottom:20px; }
+        .modal-actions { display:flex; flex-direction:column; gap:10px; }
+        .modal-wish-btn { padding:10px 18px; font-size:13px; font-weight:600; border-radius:12px; border:1px solid rgba(0,230,138,0.2); background:rgba(0,230,138,0.06); color:#00e68a; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.3s; }
+        .modal-wish-btn:hover { background:rgba(0,230,138,0.12); }
+        .modal-wish-btn.wishlisted { background:rgba(248,113,113,0.06); border-color:rgba(248,113,113,0.2); color:#f87171; }
+        .modal-ol-btn { padding:10px 18px; font-size:13px; font-weight:600; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#888; cursor:pointer; text-decoration:none; display:block; text-align:center; transition:all 0.3s; }
+        .modal-ol-btn:hover { color:#fff; background:rgba(255,255,255,0.07); }
+        .modal-close { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.06); border:none; color:#888; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; line-height:1; }
+        .modal-close:hover { background:rgba(248,113,113,0.12); color:#f87171; }
+
+        /* ---- Book Description ---- */
+        .modal-description { padding:0 24px 20px; border-top:1px solid rgba(255,255,255,0.04); }
+        .modal-desc-text { font-size:13px; line-height:1.7; color:#aaa; margin-top:14px; font-style:italic; }
+        .modal-meta-pills { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+        .modal-meta-pill { font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(0,230,138,0.06); border:1px solid rgba(0,230,138,0.12); color:#00e68a; font-weight:500; }
+        .modal-meta-pill.year { background:rgba(0,180,216,0.06); border-color:rgba(0,180,216,0.12); color:#00b4d8; }
+        .modal-desc-loading { height:48px; background:linear-gradient(90deg,rgba(255,255,255,0.02) 25%,rgba(255,255,255,0.06) 50%,rgba(255,255,255,0.02) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; margin-top:14px; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ---- User Rating Widget ---- */
+        .user-rating { display:flex; align-items:center; gap:12px; margin-top:12px; }
+        .user-rating-label { font-size:11px; color:#555; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
+        .user-rating-stars { display:flex; gap:2px; }
+        .user-rating-stars .ur-star { font-size:22px; cursor:pointer; color:#2a2a35; transition:all 0.2s; }
+        .user-rating-stars .ur-star:hover, .user-rating-stars .ur-star.hovered { color:#f59e0b; transform:scale(1.15); }
+        .user-rating-stars .ur-star.rated { color:#f59e0b; }
+        .modal-read-btn { padding:10px 18px; font-size:13px; font-weight:600; border-radius:12px; border:1px solid rgba(0,180,216,0.2); background:rgba(0,180,216,0.06); color:#00b4d8; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.3s; }
+        .modal-read-btn:hover { background:rgba(0,180,216,0.12); }
+        .modal-read-btn.marked { background:rgba(0,180,216,0.12); border-color:rgba(0,180,216,0.3); color:#00e68a; }
+
+        /* ---- Toast ---- */
+        .toast { position:fixed; bottom:30px; right:30px; z-index:1000; padding:14px 24px; border-radius:14px; font-size:14px; font-weight:600; backdrop-filter:blur(20px); display:none; }
+        .toast.success { background:rgba(0,230,138,0.1); border:1px solid rgba(0,230,138,0.2); color:#00e68a; }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
-            nav {
-                padding: 0 20px;
-            }
-
-            .hero h1 {
-                font-size: 36px;
-                letter-spacing: -1px;
-            }
-
-            .grid-container {
-                padding: 20px 16px 60px;
-                gap: 14px;
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .book-card {
-                padding: 14px;
-            }
-
-            .book-img-wrapper {
-                height: 220px;
-            }
+            nav { padding: 0 20px; }
+            .nav-links { display: none; }
+            .hamburger { display: flex; }
+            .hero h1 { font-size: 36px; letter-spacing: -1px; }
+            .grid-container { padding: 20px 16px 60px; gap: 14px; grid-template-columns: repeat(2, 1fr); }
+            .book-card { padding: 14px; }
+            .book-img-wrapper { height: 220px; }
+            .modal-top { flex-direction:column; }
+            .modal-cover { width:100%; min-height:200px; }
         }
     </style>
 </head>
@@ -569,38 +619,52 @@
 
     <canvas id="particleCanvas"></canvas>
 
-    <nav>
-        <span class="nav-brand">📚 BOOKIFY</span>
+    <nav id="mainNav">
+        <a class="nav-brand" href="/">📚 BOOKIFY</a>
         <ul class="nav-links">
             <li><a href="/" class="active">Home</a></li>
             <li><a href="/recommend">Recommend</a></li>
             <li><a href="/mood">Mood</a></li>
+            <li><a href="/for_you">For You</a></li>
             <li><a href="/multimodal">Multi-Modal</a></li>
             <li><a href="#contact">Contact</a></li>
         </ul>
         {% if user %}
-        <div style="display:flex;align-items:center;gap:14px;">
-            <span style="font-size:13px;color:#888;font-weight:500;">👤 {{ user.name }}</span>
-            <a href="/logout"
-                style="font-size:12px;color:#555;text-decoration:none;padding:6px 14px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;transition:all 0.3s;font-weight:600;"
-                onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,0.2)'"
-                onmouseout="this.style.color='#555';this.style.borderColor='rgba(255,255,255,0.08)'">Logout</a>
+        <div class="nav-right">
+            <a href="/profile" class="nav-avatar" title="My Profile">{{ user.name[0].upper() }}</a>
+            <a href="/logout" class="logout-btn">Logout</a>
         </div>
         {% endif %}
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+            <span></span><span></span><span></span>
+        </button>
     </nav>
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="/" class="active">🏠 Home</a>
+        <a href="/recommend">🔍 Recommend</a>
+        <a href="/mood">😊 Mood</a>
+        <a href="/for_you">🎯 For You</a>
+        <a href="/multimodal">🧬 Multi-Modal</a>
+        <a href="/profile">👤 Profile</a>
+        <a href="/logout" style="color:#f87171;">↩ Logout</a>
+    </div>
 
     <section class="hero">
-        <h1>Top 50 Books</h1>
-        <p>The most popular and highest-rated books curated from thousands of reader reviews</p>
-        <span class="badge-count">{{ book_name|length }} BOOKS</span>
+        <h1>Welcome to BOOKIFY</h1>
+        <p>The ultimate book discovery platform curated from thousands of reader reviews</p>
+
     </section>
 
     <div class="grid-container">
         {% for i in range(book_name|length) %}
-        <div class="book-card" style="animation-delay: {{ i * 0.06 }}s">
+        {% set full_stars = (rating[i] | round(0, 'floor') | int) %}
+        <div class="book-card" style="animation-delay: {{ i * 0.06 }}s"
+             onclick="openModal('{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}',{{ votes[i] }},{{ full_stars }})">
+            <button class="wish-btn-overlay" id="wb-{{ i }}" title="Add to Wishlist"
+                    onclick="event.stopPropagation();toggleWishlist({{ i }},'{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}')">♡</button>
             <div class="book-img-wrapper">
                 <img src="{{ image[i] }}" alt="{{ book_name[i] }}" loading="lazy"
-                    onerror="this.src='https://via.placeholder.com/200x280/1a1a2e/e0e0e0?text=No+Cover'">
+                    onerror="imgError(this, '{{ image[i] }}')">
                 <div class="overlay"></div>
             </div>
             <div class="book-title">{{ book_name[i] }}</div>
@@ -613,19 +677,51 @@
                 <div class="stat" style="align-items:flex-end;">
                     <span class="stat-label">Rating</span>
                     <div class="rating-stars">
-                        {% set full_stars = (rating[i] | round(0, 'floor') | int) %}
-                        {% for s in range(full_stars) %}
-                        <span class="star" style="animation-delay: {{ s * 0.1 }}s">★</span>
-                        {% endfor %}
-                        {% for s in range(5 - full_stars) %}
-                        <span class="star empty">★</span>
-                        {% endfor %}
+                        {% for s in range(full_stars) %}<span class="star" style="animation-delay: {{ s * 0.1 }}s">★</span>{% endfor %}
+                        {% for s in range(5 - full_stars) %}<span class="star empty">★</span>{% endfor %}
                     </div>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
+
+    <!-- Book Detail Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div class="modal-top">
+                <img id="modalCover" class="modal-cover" src="" alt="Book cover" onerror="imgError(this, this.src)">
+                <div class="modal-info">
+                    <div id="modalTitle" class="modal-title"></div>
+                    <div id="modalAuthor" class="modal-author"></div>
+                    <div id="modalStars" class="modal-stars"></div>
+                    <div id="modalVotes" class="modal-votes"></div>
+                    <div class="modal-actions">
+                        <button id="modalWishBtn" class="modal-wish-btn" onclick="modalToggleWishlist()">♡ Add to Wishlist</button>
+                        <button id="modalReadBtn" class="modal-read-btn" onclick="modalMarkAsRead()">📖 Mark as Read</button>
+                        <div class="user-rating">
+                            <span class="user-rating-label">Your Rating</span>
+                            <div class="user-rating-stars" id="modalUserRating">
+                                <span class="ur-star" data-v="1" onclick="submitRating(1)" onmouseenter="hoverStars(1)" onmouseleave="unhoverStars()">★</span>
+                                <span class="ur-star" data-v="2" onclick="submitRating(2)" onmouseenter="hoverStars(2)" onmouseleave="unhoverStars()">★</span>
+                                <span class="ur-star" data-v="3" onclick="submitRating(3)" onmouseenter="hoverStars(3)" onmouseleave="unhoverStars()">★</span>
+                                <span class="ur-star" data-v="4" onclick="submitRating(4)" onmouseenter="hoverStars(4)" onmouseleave="unhoverStars()">★</span>
+                                <span class="ur-star" data-v="5" onclick="submitRating(5)" onmouseenter="hoverStars(5)" onmouseleave="unhoverStars()">★</span>
+                            </div>
+                        </div>
+                        <a id="modalOlBtn" class="modal-ol-btn" href="#" target="_blank">🔗 Search on Open Library</a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-description" id="modalDescSection" style="display:none">
+                <div class="modal-desc-loading" id="modalDescLoading"></div>
+                <div class="modal-desc-text" id="modalDescText" style="display:none"></div>
+                <div class="modal-meta-pills" id="modalMetaPills"></div>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
 
     <button class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
@@ -661,6 +757,24 @@
     </footer>
 
     <script>
+        // ---- Image Fallback Handler ----
+        const NO_COVER_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect width='200' height='280' fill='%230d0d14'/%3E%3Crect x='1' y='1' width='198' height='278' rx='4' fill='none' stroke='%23ffffff0f' stroke-width='1'/%3E%3Ctext x='100' y='120' font-family='Georgia,serif' font-size='48' text-anchor='middle' fill='%2300e68a' opacity='0.25'%3E📚%3C/text%3E%3Ctext x='100' y='165' font-family='Inter,sans-serif' font-size='11' font-weight='600' text-anchor='middle' fill='%23ffffff33' letter-spacing='2'%3ENO COVER%3C/text%3E%3C/svg%3E";
+        function imgError(img, origUrl) {
+            if (img.dataset.failed) {
+                img.src = NO_COVER_SVG;
+                img.onerror = null;
+                return;
+            }
+            const match = origUrl && origUrl.match(/\/P\/([A-Z0-9]+)\./i);
+            if (match && match[1]) {
+                img.dataset.failed = "1";
+                img.src = `https://covers.openlibrary.org/b/isbn/${match[1]}-M.jpg`;
+            } else {
+                img.src = NO_COVER_SVG;
+                img.onerror = null;
+            }
+        }
+
         // ---- Particle System ----
         (function () {
             const canvas = document.getElementById('particleCanvas');
@@ -737,8 +851,142 @@
         // ---- Scroll Effects ----
         window.addEventListener('scroll', () => {
             document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 400);
-            document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 20);
+            document.getElementById('mainNav').classList.toggle('scrolled', window.scrollY > 20);
         });
+
+        // ---- Mobile hamburger ----
+        document.getElementById('hamburger').addEventListener('click', () => {
+            document.getElementById('mobileMenu').classList.toggle('open');
+        });
+
+        // ---- Wishlist ----
+        function toggleWishlist(idx, title, author, image) {
+            const btn = document.getElementById('wb-' + idx);
+            const w = btn.classList.contains('wishlisted');
+            fetch(w ? '/wishlist/remove' : '/wishlist/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token() }}' },
+                body: JSON.stringify(w ? { title } : { title, author, image })
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'added') { btn.classList.add('wishlisted'); btn.textContent = '♥'; showToast('Added to wishlist!'); }
+                else if (d.status === 'removed') { btn.classList.remove('wishlisted'); btn.textContent = '♡'; showToast('Removed from wishlist'); }
+                else if (d.error) showToast(d.error);
+            });
+        }
+
+        // ---- Book Detail Modal ----
+        let _modalTitle='',_modalAuthor='',_modalImage='',_currentUserRating=0;
+        function openModal(title, author, image, votes, stars) {
+            _modalTitle=title; _modalAuthor=author; _modalImage=image; _currentUserRating=0;
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalAuthor').textContent = 'by ' + author;
+            document.getElementById('modalCover').src = image;
+            document.getElementById('modalCover').onerror = function(){imgError(this, image);};
+            document.getElementById('modalStars').textContent = '★'.repeat(stars) + '☆'.repeat(5-stars);
+            document.getElementById('modalVotes').textContent = votes + ' ratings';
+            document.getElementById('modalOlBtn').href = 'https://openlibrary.org/search?q=' + encodeURIComponent(title);
+            // Reset rating stars
+            setRatingStars(0);
+            // Reset read button
+            const rb = document.getElementById('modalReadBtn');
+            rb.classList.remove('marked'); rb.textContent = '📖 Mark as Read';
+            // Check wishlist status
+            fetch('/wishlist/check?title=' + encodeURIComponent(title)).then(r=>r.json()).then(d=>{
+                const wb = document.getElementById('modalWishBtn');
+                if(d.wishlisted){wb.classList.add('wishlisted');wb.textContent='♥ Wishlisted';}
+                else{wb.classList.remove('wishlisted');wb.textContent='♡ Add to Wishlist';}
+            });
+            // Check user's rating
+            fetch('/rating/check?title=' + encodeURIComponent(title)).then(r=>r.json()).then(d=>{
+                if(d.rating) { _currentUserRating = d.rating; setRatingStars(d.rating); }
+            });
+            // Fetch book details from Open Library
+            const descSection = document.getElementById('modalDescSection');
+            const descLoading = document.getElementById('modalDescLoading');
+            const descText = document.getElementById('modalDescText');
+            const metaPills = document.getElementById('modalMetaPills');
+            descSection.style.display = 'block';
+            descLoading.style.display = 'block';
+            descText.style.display = 'none';
+            metaPills.innerHTML = '';
+            fetch('/book/details?title=' + encodeURIComponent(title)).then(r=>r.json()).then(d=>{
+                descLoading.style.display = 'none';
+                if(d.description) {
+                    descText.textContent = d.description;
+                    descText.style.display = 'block';
+                }
+                let pills = '';
+                if(d.year) pills += '<span class="modal-meta-pill year">📅 ' + d.year + '</span>';
+                if(d.pages) pills += '<span class="modal-meta-pill">📄 ' + d.pages + ' pages</span>';
+                if(d.subjects && d.subjects.length) {
+                    d.subjects.slice(0,3).forEach(s => {
+                        pills += '<span class="modal-meta-pill">' + s + '</span>';
+                    });
+                }
+                metaPills.innerHTML = pills;
+                if(!d.description && !pills) descSection.style.display = 'none';
+            }).catch(()=>{ descLoading.style.display='none'; });
+            document.getElementById('modalOverlay').classList.add('open');
+            document.body.style.overflow='hidden';
+        }
+        function closeModal(){document.getElementById('modalOverlay').classList.remove('open');document.body.style.overflow='';}
+        document.addEventListener('keydown',(e)=>{if(e.key==='Escape')closeModal();});
+        function modalToggleWishlist() {
+            const wb = document.getElementById('modalWishBtn');
+            const wishlisted = wb.classList.contains('wishlisted');
+            const endpoint = wishlisted ? '/wishlist/remove' : '/wishlist/add';
+            const body = wishlisted ? {title:_modalTitle} : {title:_modalTitle,author:_modalAuthor,image:_modalImage};
+            fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+                .then(r=>r.json()).then(d=>{
+                    if(d.status==='added'){wb.classList.add('wishlisted');wb.textContent='♥ Wishlisted';showToast('Added to wishlist!');}
+                    else if(d.status==='removed'){wb.classList.remove('wishlisted');wb.textContent='♡ Add to Wishlist';showToast('Removed from wishlist');}
+                });
+        }
+
+        // ---- Mark as Read ----
+        function modalMarkAsRead() {
+            const rb = document.getElementById('modalReadBtn');
+            if(rb.classList.contains('marked')) return;
+            fetch('/history',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({title:_modalTitle,author:_modalAuthor,image:_modalImage})
+            }).then(r=>r.json()).then(d=>{
+                if(d.status==='added'){
+                    rb.classList.add('marked'); rb.textContent='✓ Marked as Read';
+                    showToast('Added to reading history!');
+                }
+            });
+        }
+
+        // ---- User Rating ----
+        function setRatingStars(n) {
+            _currentUserRating = n;
+            document.querySelectorAll('#modalUserRating .ur-star').forEach(s=>{
+                s.classList.toggle('rated', parseInt(s.dataset.v) <= n);
+            });
+        }
+        function hoverStars(n) {
+            document.querySelectorAll('#modalUserRating .ur-star').forEach(s=>{
+                s.classList.toggle('hovered', parseInt(s.dataset.v) <= n);
+            });
+        }
+        function unhoverStars() {
+            document.querySelectorAll('#modalUserRating .ur-star').forEach(s=>{
+                s.classList.remove('hovered');
+            });
+        }
+        function submitRating(n) {
+            fetch('/rate',{method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({title:_modalTitle,rating:n})
+            }).then(r=>r.json()).then(d=>{
+                if(d.status==='rated'){
+                    setRatingStars(n);
+                    showToast('Rated ' + n + ' star' + (n>1?'s':'') + '!');
+                } else if(d.message) { showToast(d.message); }
+            });
+        }
+
+        // ---- Toast ----
+        function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.className='toast success';t.style.display='block';setTimeout(()=>{t.style.opacity='0';setTimeout(()=>{t.style.display='none';t.style.opacity='1';},400);},3000);}
     </script>
 
 </body>
