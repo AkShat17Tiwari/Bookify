@@ -26,6 +26,13 @@ else:
     ncf_similarity_scores = None
     print("⚠️  NCF model not found — using classic mode only")
 
+# Load model accuracy metrics (if available)
+model_accuracy = None
+if os.path.exists('model_accuracy.json'):
+    with open('model_accuracy.json', 'r') as f:
+        model_accuracy = json.load(f)
+    print(f"✅ Model accuracy loaded: {model_accuracy['accuracy']['accuracy_pct']}%")
+
 # Load genre data (if available)
 genre_data = None
 genre_available = os.path.exists('genre_data.pkl')
@@ -342,9 +349,10 @@ def index():
                            votes=list(popular_df['num_ratings'].values),
                            rating=list(popular_df['avg_rating'].values),
                            user=user,
-                           total_books=271360,  # Scale of Book-Crossing dataset
+                           total_books=pt.shape[0],
                            total_genres=len(all_genres) if genre_available else 23,
-                           total_users=278858 + total_users_count # Base dataset users + local signups
+                           total_users=pt.shape[1] + total_users_count,
+                           model_accuracy=model_accuracy
                            )
 
 @app.route('/recommend')

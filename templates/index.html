@@ -653,7 +653,97 @@
         <h1>Welcome to BOOKIFY</h1>
         <p>The ultimate book discovery platform curated from thousands of reader reviews</p>
 
+        {% if model_accuracy %}
+        <div class="accuracy-section">
+            <div class="accuracy-header">
+                <span class="accuracy-badge">🧠 AI Model Performance</span>
+            </div>
+            <div class="accuracy-grid">
+                <div class="accuracy-card main-accuracy">
+                    <div class="accuracy-gauge">
+                        <svg viewBox="0 0 120 120" class="gauge-svg">
+                            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
+                            <circle cx="60" cy="60" r="52" fill="none" stroke="url(#gaugeGrad)" stroke-width="8"
+                                    stroke-dasharray="{{ (model_accuracy.accuracy.accuracy_pct / 100 * 326.7)|round(1) }} 326.7"
+                                    stroke-linecap="round" transform="rotate(-90 60 60)"
+                                    class="gauge-fill"/>
+                            <defs>
+                                <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#00e68a"/>
+                                    <stop offset="100%" style="stop-color:#00b4d8"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="gauge-text">
+                            <span class="gauge-value">{{ model_accuracy.accuracy.accuracy_pct }}%</span>
+                            <span class="gauge-label">Accuracy</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="metric-icon">📉</div>
+                    <div class="metric-value">{{ model_accuracy.accuracy.rmse }}</div>
+                    <div class="metric-label">RMSE</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="metric-icon">📏</div>
+                    <div class="metric-value">{{ model_accuracy.accuracy.mae }}</div>
+                    <div class="metric-label">MAE</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="metric-icon">🎯</div>
+                    <div class="metric-value">{{ "%.1f"|format(model_accuracy.ranking.precision_at_10 * 100) }}%</div>
+                    <div class="metric-label">Precision@10</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="metric-icon">📊</div>
+                    <div class="metric-value">{{ "%.1f"|format(model_accuracy.ranking.hit_rate_at_10 * 100) }}%</div>
+                    <div class="metric-label">Hit Rate@10</div>
+                </div>
+            </div>
+            <div class="accuracy-footer">
+                <span>{{ model_accuracy.dataset.total_books|default(0) }} books</span>
+                <span class="dot">·</span>
+                <span>{{ model_accuracy.dataset.total_users|default(0) }} users</span>
+                <span class="dot">·</span>
+                <span>{{ model_accuracy.dataset.total_ratings|default(0)|int }} ratings</span>
+                <span class="dot">·</span>
+                <span>NCF Deep Learning</span>
+            </div>
+        </div>
+        {% endif %}
+
     </section>
+
+    <style>
+        .accuracy-section { margin-top: 36px; max-width: 680px; margin-left: auto; margin-right: auto; }
+        .accuracy-header { margin-bottom: 18px; }
+        .accuracy-badge { display:inline-block; padding:6px 16px; font-size:11px; font-weight:700; color:#a78bfa; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.18); border-radius:20px; letter-spacing:1px; text-transform:uppercase; }
+        .accuracy-grid { display:grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap:12px; }
+        .accuracy-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:18px 14px; text-align:center; backdrop-filter:blur(8px); transition:all 0.3s; }
+        .accuracy-card:hover { background:rgba(255,255,255,0.045); border-color:rgba(0,230,138,0.15); transform:translateY(-2px); }
+        .accuracy-card.main-accuracy { grid-row: span 1; display:flex; align-items:center; justify-content:center; }
+        .accuracy-gauge { position:relative; width:100px; height:100px; }
+        .gauge-svg { width:100%; height:100%; }
+        .gauge-fill { animation: gaugeAnim 1.5s ease-out forwards; stroke-dasharray: 0 326.7; }
+        @keyframes gaugeAnim { to { stroke-dasharray: {{ (model_accuracy.accuracy.accuracy_pct / 100 * 326.7)|round(1) if model_accuracy else 0 }} 326.7; } }
+        .gauge-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+        .gauge-value { display:block; font-size:20px; font-weight:800; color:#fff; line-height:1.2; }
+        .gauge-label { display:block; font-size:9px; color:#666; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+        .metric-icon { font-size:22px; margin-bottom:6px; }
+        .metric-value { font-size:18px; font-weight:700; color:#fff; margin-bottom:2px; }
+        .metric-label { font-size:10px; color:#666; font-weight:600; letter-spacing:0.8px; text-transform:uppercase; }
+        .accuracy-footer { margin-top:14px; font-size:11px; color:#555; font-weight:500; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+        .accuracy-footer .dot { color:#333; }
+        @media (max-width: 768px) {
+            .accuracy-grid { grid-template-columns: repeat(3, 1fr); }
+            .accuracy-card.main-accuracy { grid-column: span 3; }
+        }
+        @media (max-width: 480px) {
+            .accuracy-grid { grid-template-columns: repeat(2, 1fr); }
+            .accuracy-card.main-accuracy { grid-column: span 2; }
+        }
+    </style>
 
     <div class="grid-container">
         {% for i in range(book_name|length) %}

@@ -1,15 +1,32 @@
+# Python
 venv/
 __pycache__/
 *.pyc
+*.pyo
+
+# OS
 .DS_Store
-books.pkl
+
+# IDE
+.idea/
 
 # Large model/data files (too big for GitHub)
-similarity_scores.pkl
-ncf_similarity_scores.pkl
-books.pkl.bak
-genre_data.pkl
-pt.pkl
-ncf_book_embeddings.pkl
+*.pkl
+*.pkl.bak
+*.real_bak
 users.db
+
+# Raw dataset CSVs (download from Kaggle if needed)
+Books.csv
+Ratings.csv
+Users.csv
+BX-Books.csv
+BX-Book-Ratings.csv
+BX-Users.csv
+
+# Logs
 logs/
+*.log
+
+# Model accuracy cache
+model_accuracy.json
