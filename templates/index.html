@@ -379,12 +379,26 @@
         .rating-stars {
             display: flex;
             gap: 2px;
+            align-items: center;
         }
 
         .star {
             color: #f59e0b;
             font-size: 14px;
             transition: transform 0.2s;
+        }
+
+        .star.half {
+            position: relative;
+            color: #2a2a35;
+        }
+        .star.half::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            overflow: hidden;
+            width: 50%;
+            color: #f59e0b;
         }
 
         .book-card:hover .star {
@@ -405,6 +419,13 @@
 
         .star.empty {
             color: #2a2a35;
+        }
+
+        .rating-number {
+            font-size: 12px;
+            font-weight: 700;
+            color: #f59e0b;
+            margin-left: 4px;
         }
 
         /* ---- Scroll to Top ---- */
@@ -554,7 +575,11 @@
         /* ---- Wish btn overlay ---- */
         .wish-btn-overlay { position:absolute; top:10px; right:10px; z-index:5; width:36px; height:36px; border-radius:10px; border:none; background:rgba(10,10,15,0.6); backdrop-filter:blur(8px); color:#888; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; }
         .wish-btn-overlay:hover { background:rgba(248,113,113,0.15); color:#f87171; transform:scale(1.1); }
-        .wish-btn-overlay.active { color:#f87171; background:rgba(248,113,113,0.15); }
+        .wish-btn-overlay.wishlisted { color:#f87171; background:rgba(248,113,113,0.15); }
+        /* ---- Read btn overlay ---- */
+        .read-btn-overlay { position:absolute; top:10px; left:10px; z-index:5; width:36px; height:36px; border-radius:10px; border:none; background:rgba(10,10,15,0.6); backdrop-filter:blur(8px); color:#888; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; }
+        .read-btn-overlay:hover { background:rgba(0,230,138,0.15); color:#00e68a; transform:scale(1.1); }
+        .read-btn-overlay.read { color:#00e68a; background:rgba(0,230,138,0.15); }
 
         /* ---- Book Detail Modal ---- */
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(12px); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
@@ -747,11 +772,16 @@
 
     <div class="grid-container">
         {% for i in range(book_name|length) %}
-        {% set full_stars = (rating[i] | round(0, 'floor') | int) %}
+        {% set star_rating = (rating[i] / 2) %}
+        {% set full_stars = (star_rating | round(0, 'floor') | int) %}
+        {% set has_half = ((star_rating - full_stars) >= 0.25) %}
+        {% set empty_stars = 5 - full_stars - (1 if has_half else 0) %}
         <div class="book-card" style="animation-delay: {{ i * 0.06 }}s"
-             onclick="openModal('{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}',{{ votes[i] }},{{ full_stars }})">
+             onclick="openModal('{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}',{{ votes[i] }},{{ star_rating | round(1) }})">
             <button class="wish-btn-overlay" id="wb-{{ i }}" title="Add to Wishlist"
                     onclick="event.stopPropagation();toggleWishlist({{ i }},'{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}')">♡</button>
+            <button class="read-btn-overlay" id="rb-{{ i }}" title="Mark as Read"
+                    onclick="event.stopPropagation();toggleRead({{ i }},'{{ book_name[i]|replace("'","\\'") }}','{{ author[i]|replace("'","\\'") }}','{{ image[i] }}')">📖</button>
             <div class="book-img-wrapper">
                 <img src="{{ image[i] }}" alt="{{ book_name[i] }}" loading="lazy"
                     onerror="imgError(this, '{{ image[i] }}')">
@@ -768,7 +798,9 @@
                     <span class="stat-label">Rating</span>
                     <div class="rating-stars">
                         {% for s in range(full_stars) %}<span class="star" style="animation-delay: {{ s * 0.1 }}s">★</span>{% endfor %}
-                        {% for s in range(5 - full_stars) %}<span class="star empty">★</span>{% endfor %}
+                        {% if has_half %}<span class="star half" style="animation-delay: {{ full_stars * 0.1 }}s">★</span>{% endif %}
+                        {% for s in range(empty_stars) %}<span class="star empty">★</span>{% endfor %}
+                        <span class="rating-number">{{ "%.1f"|format(star_rating) }}</span>
                     </div>
                 </div>
             </div>
@@ -964,10 +996,33 @@
             });
         }
 
+        // ---- Mark as Read (card overlay) ----
+        function toggleRead(idx, title, author, image) {
+            const btn = document.getElementById('rb-' + idx);
+            if (btn.classList.contains('read')) {
+                fetch('/history/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ title })
+                }).then(r => r.json()).then(d => {
+                    if (d.status === 'removed') { btn.classList.remove('read'); btn.textContent = '📖'; showToast('Removed from reading history'); }
+                });
+            } else {
+                fetch('/history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ title, author, image })
+                }).then(r => r.json()).then(d => {
+                    if (d.status === 'added') { btn.classList.add('read'); btn.textContent = '✓'; showToast('Marked as read!'); }
+                });
+            }
+        }
+
         // ---- Book Detail Modal ----
         let _modalTitle='',_modalAuthor='',_modalImage='',_currentUserRating=0;
-        function openModal(title, author, image, votes, stars) {
+        function openModal(title, author, image, votes, starRating) {
             _modalTitle=title; _modalAuthor=author; _modalImage=image; _currentUserRating=0;
+            const stars = Math.floor(starRating);
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalAuthor').textContent = 'by ' + author;
             document.getElementById('modalCover').src = image;
@@ -1077,6 +1132,25 @@
 
         // ---- Toast ----
         function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.className='toast success';t.style.display='block';setTimeout(()=>{t.style.opacity='0';setTimeout(()=>{t.style.display='none';t.style.opacity='1';},400);},3000);}
+
+        // ---- Initialize card states on load ----
+        (function() {
+            const bookTitles = [{% for i in range(book_name|length) %}'{{ book_name[i]|replace("'","\\'") }}'{% if not loop.last %},{% endif %}{% endfor %}];
+            // Fetch wishlist
+            fetch('/wishlist').then(r=>r.json()).then(d=>{
+                const wl = new Set((d.wishlist||[]).map(b=>b.book_title));
+                bookTitles.forEach((t,i)=>{
+                    if(wl.has(t)){const btn=document.getElementById('wb-'+i);if(btn){btn.classList.add('wishlisted');btn.textContent='♥';}}
+                });
+            }).catch(()=>{});
+            // Fetch reading history
+            fetch('/history').then(r=>r.json()).then(d=>{
+                const hl = new Set((d.history||[]).map(b=>b.title));
+                bookTitles.forEach((t,i)=>{
+                    if(hl.has(t)){const btn=document.getElementById('rb-'+i);if(btn){btn.classList.add('read');btn.textContent='✓';}}
+                });
+            }).catch(()=>{});
+        })();
     </script>
 
 </body>
