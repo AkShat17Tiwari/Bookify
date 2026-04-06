@@ -385,6 +385,8 @@ def main():
             'best_val_loss': float(best_val_loss),
             'final_train_loss': float(train_losses[-1]),
             'early_stopped': patience_counter >= PATIENCE,
+            'train_losses': [float(l) for l in train_losses],
+            'val_losses': [float(l) for l in val_losses],
         },
         'dataset': {
             'total_books': n_books,

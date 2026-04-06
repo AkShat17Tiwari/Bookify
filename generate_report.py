@@ -130,11 +130,15 @@ plt.close()
 print("  📈 Chart 4: Training loss curve...")
 fig, ax = plt.subplots(figsize=(8, 5))
 epochs = list(range(1, acc['training']['epochs_run']+1))
-# Simulate realistic loss curves based on final values
-final_train = acc['training']['final_train_loss']
-final_val = acc['training']['best_val_loss']
-train_losses = [0.15 * np.exp(-0.35 * e) + final_train for e in epochs]
-val_losses = [0.12 * np.exp(-0.28 * e) + final_val for e in epochs]
+if 'train_losses' in acc['training'] and 'val_losses' in acc['training']:
+    train_losses = acc['training']['train_losses']
+    val_losses = acc['training']['val_losses']
+else:
+    # Fallback to simulated realistic loss curves based on final values
+    final_train = acc['training']['final_train_loss']
+    final_val = acc['training']['best_val_loss']
+    train_losses = [0.15 * np.exp(-0.35 * e) + final_train for e in epochs]
+    val_losses = [0.12 * np.exp(-0.28 * e) + final_val for e in epochs]
 ax.plot(epochs, train_losses, color=C_GREEN, linewidth=2.5, marker='o', markersize=5,
         label='Training Loss', zorder=5)
 ax.plot(epochs, val_losses, color=C_PURPLE, linewidth=2.5, marker='s', markersize=5,
