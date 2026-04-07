@@ -11,8 +11,7 @@ __pycache__/
 .idea/
 
 # Large model/data files (too big for GitHub)
-*.pkl
-*.pkl.bak
+# Large model/data files handled by git-lfs instead
 *.real_bak
 users.db
 
