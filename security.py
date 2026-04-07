@@ -348,23 +348,25 @@ def add_security_headers(response):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
 
     # SECURITY: Restrict browser features (camera, mic, geolocation, etc.)
+    # camera=(self) is needed for the Mood Reader face detection feature
     response.headers['Permissions-Policy'] = (
-        'camera=(), microphone=(self), geolocation=(), payment=()'
+        'camera=(self), microphone=(self), geolocation=(), payment=()'
     )
 
     # SECURITY: Content Security Policy — whitelist allowed content sources
-    # Allow Google's GIS library for OAuth, plus Google Fonts
+    # Allow Clerk JS SDK, Google Fonts, face-api.js, and Clerk auth domains
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.accounts.dev; "
+        "font-src 'self' https://fonts.gstatic.com https://*.clerk.accounts.dev; "
         "img-src 'self' data: https: http:; "
-        "frame-src https://accounts.google.com; "
-        "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com; "
+        "frame-src https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; "
+        "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://api.clerk.com https://clerk-telemetry.com https://cdn.jsdelivr.net https://justadudewhohacks.github.io; "
+        "worker-src 'self' blob:; "
         "object-src 'none'; "
         "base-uri 'self'; "
-        "form-action 'self' https://accounts.google.com; "
+        "form-action 'self' https://*.clerk.accounts.dev; "
     )
 
     # SECURITY: HSTS — force HTTPS for 1 year (only set in production)
@@ -468,7 +470,8 @@ def request_guard():
         csrf_exempt = ('/google/callback', '/analyze_cover', '/voice_search',
                        '/history', '/multimodal_recommend', '/mood_recommend',
                        '/recommend_books', '/autocomplete', '/rate', '/history/remove',
-                       '/onboarding')
+                       '/onboarding', '/wishlist/add', '/wishlist/remove',
+                       '/wishlist/check', '/rating/check')
         if path not in csrf_exempt:
             token = (request.form.get('csrf_token') or
                      request.headers.get('X-CSRF-Token', ''))

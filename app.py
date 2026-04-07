@@ -4,11 +4,15 @@ import numpy as np
 import os
 import random
 import json
+import html as html_module
 from difflib import get_close_matches
 from cover_analyzer import analyze_cover
 
 with open('popular.pkl', 'rb') as f:
     popular_df = pickle.load(f)
+# Unescape HTML entities in book titles (e.g. '&amp;' -> '&')
+popular_df['Book-Title'] = popular_df['Book-Title'].apply(lambda x: html_module.unescape(x) if isinstance(x, str) else x)
+popular_df['Book-Author'] = popular_df['Book-Author'].apply(lambda x: html_module.unescape(x) if isinstance(x, str) else x)
 with open('pt.pkl', 'rb') as f:
     pt = pickle.load(f)
 with open('books_slim.pkl', 'rb') as f:
@@ -97,142 +101,70 @@ if genre_available:
         genre_index_cache[genre_name] = np.array(indices, dtype=int)
     print(f"✅ Genre index cache built for {len(genre_index_cache)} genres")
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 
 # SECURITY: Generate a cryptographically random secret key if not set in env.
-# Never use a hardcoded default in production.
 import secrets as _secrets
 app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
+
+# ── Clerk configuration ──
+CLERK_PUBLISHABLE_KEY = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
 
 # ── Security middleware (headers, rate limiting, CSRF, input validation) ──
 from security import init_security
 init_security(app)
 
-# ── Auth system (bcrypt, RBAC, brute-force protection) ──
+# ── Auth system (Clerk + local DB) ──
 from auth import (
-    create_user, verify_user, get_user_by_email, get_user_by_google_id,
-    login_user, logout_user, get_current_user, login_required, admin_required,
-    list_users, add_to_wishlist, remove_from_wishlist, get_wishlist, is_wishlisted,
+    get_current_user, login_required, admin_required,
+    login_user, logout_user, list_users,
+    add_to_wishlist, remove_from_wishlist, get_wishlist, is_wishlisted,
     add_to_history, get_reading_history, remove_from_history, get_history_titles,
     rate_book, get_user_rating, get_user_ratings,
     save_genre_preferences, get_genre_preferences, has_completed_onboarding
 )
 
+# Make Clerk publishable key available to all templates
+@app.context_processor
+def inject_clerk():
+    return dict(clerk_publishable_key=CLERK_PUBLISHABLE_KEY)
+
 
 # ══════════════════════════════════════════════════════════════════
-# AUTH ROUTES
+# AUTH ROUTES (Clerk)
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/auth')
+def auth_page():
+    """Render the Clerk sign-in page."""
+    # If already authenticated, redirect to home
+    user = get_current_user()
+    if user:
+        if not has_completed_onboarding(user['id']):
+            return redirect('/onboarding')
+        return redirect('/')
+    redirect_url = request.args.get('redirect_url', '/')
+    return render_template('auth.html', redirect_url=redirect_url)
+
+@app.route('/login')
 def login_page():
-    if 'user_id' in session:
-        return redirect('/')
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        next_url = request.form.get('next', '/')
-        user, error = verify_user(email, password)
-        if error:
-            return render_template('login.html', error=error, next_url=next_url, google_client_id=GOOGLE_CLIENT_ID)
-        login_user(user)
-        return redirect(next_url or '/')
+    """Legacy redirect — send to Clerk auth page."""
     next_url = request.args.get('next', '/')
-    return render_template('login.html', next_url=next_url, google_client_id=GOOGLE_CLIENT_ID)
+    return redirect('/auth?redirect_url=' + next_url)
 
-
-@app.route('/signup', methods=['GET', 'POST'])
+@app.route('/signup')
 def signup_page():
-    if 'user_id' in session:
-        return redirect('/')
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        confirm = request.form.get('confirm_password', '')
-        if not name or not email or not password:
-            return render_template('signup.html', error='All fields are required.', google_client_id=GOOGLE_CLIENT_ID)
-        if len(password) < 6:
-            return render_template('signup.html', error='Password must be at least 6 characters.', google_client_id=GOOGLE_CLIENT_ID)
-        if password != confirm:
-            return render_template('signup.html', error='Passwords do not match.', google_client_id=GOOGLE_CLIENT_ID)
-        user, error = create_user(name, email, password)
-        if error:
-            return render_template('signup.html', error=error, google_client_id=GOOGLE_CLIENT_ID)
-        login_user(user)
-        return redirect('/onboarding')
-    return render_template('signup.html', google_client_id=GOOGLE_CLIENT_ID)
-
+    """Legacy redirect — send to Clerk auth page."""
+    return redirect('/auth')
 
 @app.route('/logout')
 def logout():
     logout_user()
-    return redirect('/login')
-
-
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
-
-@app.route('/google/login')
-def google_login():
-    """Redirect to login with a note if Google is not configured."""
-    if not GOOGLE_CLIENT_ID:
-        return render_template('login.html',
-            error='Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.', google_client_id=GOOGLE_CLIENT_ID)
-    # The actual Google sign-in is handled client-side via GIS JS library
-    return redirect('/login')
-
-
-@app.route('/google/callback', methods=['POST'])
-def google_callback():
-    """Verify Google ID token and log the user in."""
-    import requests as http_requests
-    token = request.form.get('credential', '')
-    if not token:
-        return redirect('/login')
-
-    # Verify token with Google
-    try:
-        resp = http_requests.get(
-            'https://oauth2.googleapis.com/tokeninfo',
-            params={'id_token': token},
-            timeout=5
-        )
-        if resp.status_code != 200:
-            return render_template('login.html', error='Google authentication failed. Please try again.', google_client_id=GOOGLE_CLIENT_ID)
-
-        info = resp.json()
-
-        # Verify the token is for our app
-        if info.get('aud') != GOOGLE_CLIENT_ID:
-            return render_template('login.html', error='Invalid Google token.', google_client_id=GOOGLE_CLIENT_ID)
-
-        email = info.get('email', '')
-        name = info.get('name', info.get('given_name', email.split('@')[0]))
-        google_id = info.get('sub', '')
-
-        if not email:
-            return render_template('login.html', error='Could not retrieve email from Google.', google_client_id=GOOGLE_CLIENT_ID)
-
-        # Check if user exists
-        existing = get_user_by_email(email)
-        if existing:
-            login_user(existing)
-            return redirect('/')
-
-        # Create new user via Google
-        user, err = create_user(name, email, google_id=google_id)
-        if err:
-            # Account exists but was created with email/password
-            existing = get_user_by_email(email)
-            if existing:
-                login_user(existing)
-                return redirect('/')
-            return render_template('login.html', error=err, google_client_id=GOOGLE_CLIENT_ID)
-
-        login_user(user)
-        return redirect('/')
-    except Exception as e:
-        print(f"Google OAuth error: {e}")
-        return render_template('login.html', error='Google authentication failed. Please try again.', google_client_id=GOOGLE_CLIENT_ID)
+    return redirect('/auth')
 
 
 def detect_genre(query):
@@ -457,6 +389,7 @@ def autocomplete():
 @app.route('/recommend_books', methods=['POST'])
 @login_required
 def recommend():
+    user = get_current_user()
     user_input = request.form.get('user_input', '').strip()
     mode = request.form.get('mode', 'classic')  # 'classic' or 'ai'
 
@@ -469,7 +402,8 @@ def recommend():
             return render_template('recommend.html', data=data, genre_mode=True,
                                    matched_genre=matched_genre, mode=used_mode,
                                    ncf_available=ncf_available, genre_available=genre_available,
-                                   all_genres=all_genres, genre_count=len(genre_books.get(genre_name, [])))
+                                   all_genres=all_genres, genre_count=len(genre_books.get(genre_name, [])),
+                                   user=user)
 
     # Then check if the raw text is a genre keyword
     detected_genre = detect_genre(user_input)
@@ -479,7 +413,8 @@ def recommend():
         return render_template('recommend.html', data=data, genre_mode=True,
                                matched_genre=matched_genre, mode=used_mode,
                                ncf_available=ncf_available, genre_available=genre_available,
-                               all_genres=all_genres, genre_count=len(genre_books.get(detected_genre, [])))
+                               all_genres=all_genres, genre_count=len(genre_books.get(detected_genre, [])),
+                               user=user)
 
     # ── Book title search logic ──
     matches = np.where(pt.index == user_input)[0]
@@ -502,9 +437,11 @@ def recommend():
                 return render_template('recommend.html', data=data, genre_mode=True,
                                        matched_genre=f'Books like "{user_input}" ({matched_genre})', mode=used_mode,
                                        ncf_available=ncf_available, genre_available=genre_available,
-                                       all_genres=all_genres, genre_count=len(genre_books.get(primary_genre, [])))
+                                       all_genres=all_genres, genre_count=len(genre_books.get(primary_genre, [])),
+                                       user=user)
         return render_template('recommend.html', data=[], error=f'No book found matching "{request.form.get("user_input")}". Try a different title or search by genre.',
-                               ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
+                               ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres,
+                               user=user)
 
     index = matches[0]
     input_genres = genre_map.get(user_input, []) if genre_available else []
@@ -550,7 +487,8 @@ def recommend():
             data.append([title, info['author'], image, reasons])
 
     return render_template('recommend.html', data=data, matched_title=user_input, mode=used_mode,
-                           ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres)
+                           ncf_available=ncf_available, genre_available=genre_available, all_genres=all_genres,
+                           user=user)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1007,6 +945,12 @@ def admin_audit_api():
     event_type = request.args.get('type')
     events = get_recent_events(event_type=event_type, limit=100)
     return jsonify(events)
+
+
+# ── Favicon route to prevent 404 errors ──
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 
 if __name__ == '__main__':

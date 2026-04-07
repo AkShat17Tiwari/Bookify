@@ -1,13 +1,10 @@
 """
-BOOKIFY — Authentication & Authorization Module
-=================================================
-Production-ready auth with:
-  • Bcrypt password hashing (cost factor 12)
-  • Role-Based Access Control (admin / user)
-  • Brute-force protection (account lockout)
-  • Session hardening (IP binding, regeneration)
-  • Audit logging integration
-  • Parameterized queries (anti-SQLi)
+BOOKIFY — Authentication & Authorization Module (Clerk Integration)
+====================================================================
+Uses Clerk for authentication:
+  • Frontend: Clerk JS SDK handles sign-in/sign-up UI
+  • Backend: Verifies Clerk session tokens via clerk-backend-api
+  • Local DB: Stores user data, wishlist, history, ratings, preferences
 
 All database queries use parameterized statements — the PRIMARY
 defense against SQL injection.
@@ -15,20 +12,15 @@ defense against SQL injection.
 
 import sqlite3
 import os
-import bcrypt
 from functools import wraps
-from datetime import datetime, timedelta
-from flask import session, redirect, url_for, request
+from datetime import datetime
+from flask import session, redirect, request, jsonify
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
 
-# SECURITY: Bcrypt cost factor — higher = slower + more secure
-# 12 is the recommended minimum for production
-BCRYPT_ROUNDS = 12
-
-# SECURITY: Account lockout settings
-MAX_FAILED_ATTEMPTS = 5        # Lock after 5 failures
-LOCKOUT_DURATION_MIN = 15      # Lock for 15 minutes
+# Clerk keys (loaded from environment)
+CLERK_SECRET_KEY = os.environ.get('CLERK_SECRET_KEY', '')
+CLERK_PUBLISHABLE_KEY = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -38,7 +30,6 @@ LOCKOUT_DURATION_MIN = 15      # Lock for 15 minutes
 def get_db():
     """
     Get a database connection with row_factory for dict-style access.
-    SECURITY: Each call opens a fresh connection to avoid shared state issues.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -47,13 +38,12 @@ def get_db():
 
 def init_db():
     """
-    Create / migrate the users table and wishlist table.
-    SECURITY: Adds role, failed_attempts, and locked_until columns
-    for RBAC and brute-force protection.
+    Create / migrate the users table and related tables.
+    Adds clerk_id column for Clerk integration.
     """
     conn = get_db()
 
-    # Create users table if it doesn't exist (with new columns)
+    # Create users table with clerk_id
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +51,7 @@ def init_db():
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT,
             google_id TEXT UNIQUE,
+            clerk_id TEXT UNIQUE,
             role TEXT NOT NULL DEFAULT 'user',
             failed_attempts INTEGER NOT NULL DEFAULT 0,
             locked_until TEXT,
@@ -122,11 +113,11 @@ def init_db():
     ''')
 
     # MIGRATION: Add new columns to existing tables if they don't exist
-    # SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we try/except
     for col, col_def in [
         ('role', "TEXT NOT NULL DEFAULT 'user'"),
         ('failed_attempts', 'INTEGER NOT NULL DEFAULT 0'),
         ('locked_until', 'TEXT'),
+        ('clerk_id', 'TEXT UNIQUE'),
     ]:
         try:
             conn.execute(f'ALTER TABLE users ADD COLUMN {col} {col_def}')
@@ -135,255 +126,183 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("✅ User database initialized (with RBAC + lockout + wishlist + history + ratings support)")
+    print("✅ User database initialized (Clerk auth + wishlist + history + ratings)")
 
 
 # ══════════════════════════════════════════════════════════════════
-# PASSWORD HASHING  (bcrypt)
+# CLERK SESSION VERIFICATION
 # ══════════════════════════════════════════════════════════════════
 
-def hash_password(password):
+def _verify_clerk_session():
     """
-    SECURITY: Hash a password using bcrypt with the configured cost factor.
-    Bcrypt is designed to be slow, making brute-force attacks impractical.
-    The salt is automatically generated and embedded in the hash.
+    Verify the Clerk session from the __session cookie.
+    Returns the Clerk user ID if valid, None otherwise.
+    Uses PyJWT to decode the session token.
     """
-    return bcrypt.hashpw(
-        password.encode('utf-8'),
-        bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    ).decode('utf-8')
-
-
-def verify_password(password, hashed):
-    """
-    SECURITY: Verify a password against a bcrypt hash.
-    Bcrypt's comparison is constant-time, preventing timing attacks.
-    Also handles legacy werkzeug hashes for backward compatibility.
-    """
-    if not hashed:
-        return False
-
-    # Handle legacy werkzeug hashes (from before the bcrypt migration)
-    if hashed.startswith(('pbkdf2:', 'scrypt:')):
-        try:
-            from werkzeug.security import check_password_hash
-            return check_password_hash(hashed, password)
-        except Exception:
-            return False
-
-    # Bcrypt verification
-    try:
-        return bcrypt.checkpw(
-            password.encode('utf-8'),
-            hashed.encode('utf-8')
-        )
-    except Exception:
-        return False
-
-
-# ══════════════════════════════════════════════════════════════════
-# BRUTE-FORCE PROTECTION
-# ══════════════════════════════════════════════════════════════════
-
-def _is_account_locked(user):
-    """
-    SECURITY: Check if an account is currently locked due to failed attempts.
-    Returns (is_locked, minutes_remaining).
-    """
-    locked_until = user.get('locked_until')
-    if not locked_until:
-        return False, 0
+    session_token = request.cookies.get('__session')
+    if not session_token:
+        return None, None, None
 
     try:
-        lock_time = datetime.fromisoformat(locked_until)
-        now = datetime.now()
-        if now < lock_time:
-            remaining = int((lock_time - now).total_seconds() / 60) + 1
-            return True, remaining
+        import jwt
+        import httpx
+
+        # Decode the Clerk publishable key to get the frontend API domain
+        # pk_test_<base64 encoded domain>
+        import base64
+        pk = CLERK_PUBLISHABLE_KEY
+        if pk.startswith('pk_test_') or pk.startswith('pk_live_'):
+            encoded = pk.split('_', 2)[2]
+            # Add padding if needed
+            padding = 4 - len(encoded) % 4
+            if padding != 4:
+                encoded += '=' * padding
+            frontend_api = base64.b64decode(encoded).decode('utf-8').rstrip('$')
         else:
-            # Lock has expired — reset
-            _reset_failed_attempts(user['email'])
-            return False, 0
-    except (ValueError, TypeError):
-        return False, 0
+            frontend_api = 'clerk.accounts.dev'
+
+        # Fetch JWKS from Clerk
+        jwks_url = f'https://{frontend_api}/.well-known/jwks.json'
+        resp = httpx.get(jwks_url, timeout=5)
+        jwks = resp.json()
+
+        # Get the signing key
+        header = jwt.get_unverified_header(session_token)
+        kid = header.get('kid')
+
+        # Find matching key
+        signing_key = None
+        for key_data in jwks.get('keys', []):
+            if key_data.get('kid') == kid:
+                from jwt.algorithms import RSAAlgorithm
+                signing_key = RSAAlgorithm.from_jwk(key_data)
+                break
+
+        if not signing_key:
+            print("⚠️ Clerk: No matching signing key found")
+            return None, None, None
+
+        # Verify and decode the token
+        payload = jwt.decode(
+            session_token,
+            signing_key,
+            algorithms=['RS256'],
+            options={
+                'verify_aud': False,  # Clerk doesn't set aud in session tokens
+                'verify_iss': True,
+            },
+            issuer=f'https://{frontend_api}',
+        )
+
+        clerk_user_id = payload.get('sub')
+        email = payload.get('email', '')
+        name = payload.get('name', '')
+
+        # If no email/name in token, try to get from Clerk API
+        if clerk_user_id and (not email or not name):
+            try:
+                from clerk_backend_api import Clerk
+                sdk = Clerk(bearer_auth=CLERK_SECRET_KEY)
+                clerk_user = sdk.users.get(user_id=clerk_user_id)
+                if clerk_user:
+                    if not email:
+                        emails = clerk_user.email_addresses or []
+                        if emails:
+                            email = emails[0].email_address
+                    if not name:
+                        name = f"{clerk_user.first_name or ''} {clerk_user.last_name or ''}".strip()
+                        if not name:
+                            name = email.split('@')[0] if email else 'User'
+            except Exception as e:
+                print(f"⚠️ Clerk API lookup failed: {e}")
+                if not name:
+                    name = email.split('@')[0] if email else 'User'
+
+        return clerk_user_id, email, name
+
+    except jwt.ExpiredSignatureError:
+        return None, None, None
+    except jwt.InvalidTokenError as e:
+        print(f"⚠️ Clerk token invalid: {e}")
+        return None, None, None
+    except Exception as e:
+        print(f"⚠️ Clerk session verification error: {e}")
+        return None, None, None
 
 
-def _increment_failed_attempts(email):
+def _get_or_create_local_user(clerk_id, email, name):
     """
-    SECURITY: Increment the failed login counter for an email.
-    If it exceeds MAX_FAILED_ATTEMPTS, lock the account.
-    Returns True if the account was just locked.
+    Get or create a local user record from Clerk user data.
+    This maps the Clerk user to the local SQLite database.
     """
+    if not clerk_id:
+        return None
+
     conn = get_db()
-    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if not user:
-        conn.close()
-        return False
 
-    new_count = (user['failed_attempts'] or 0) + 1
-
-    if new_count >= MAX_FAILED_ATTEMPTS:
-        lock_until = (datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MIN)).isoformat()
+    # Try to find by clerk_id first
+    user = conn.execute('SELECT * FROM users WHERE clerk_id = ?', (clerk_id,)).fetchone()
+    if user:
+        # Update email/name if changed
         conn.execute(
-            'UPDATE users SET failed_attempts = ?, locked_until = ? WHERE email = ?',
-            (new_count, lock_until, email)
+            'UPDATE users SET email = ?, name = ? WHERE clerk_id = ?',
+            (email or user['email'], name or user['name'], clerk_id)
         )
         conn.commit()
+        user = conn.execute('SELECT * FROM users WHERE clerk_id = ?', (clerk_id,)).fetchone()
         conn.close()
+        return dict(user)
 
-        # Log the lockout event
-        try:
-            from audit_log import log_account_locked
-            from security import get_client_ip
-            log_account_locked(get_client_ip(), email)
-        except Exception:
-            pass
-
-        return True
-    else:
-        conn.execute(
-            'UPDATE users SET failed_attempts = ? WHERE email = ?',
-            (new_count, email)
-        )
-        conn.commit()
-        conn.close()
-        return False
-
-
-def _reset_failed_attempts(email):
-    """Reset failed attempt counter and unlock the account."""
-    conn = get_db()
-    conn.execute(
-        'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE email = ?',
-        (email,)
-    )
-    conn.commit()
-    conn.close()
-
-
-# ══════════════════════════════════════════════════════════════════
-# USER MANAGEMENT
-# ══════════════════════════════════════════════════════════════════
-
-def create_user(name, email, password=None, google_id=None, role='user'):
-    """
-    Create a new user. Returns (user_dict, error_string).
-    SECURITY: Password is bcrypt-hashed before storage.
-    All queries use parameterized statements to prevent SQLi.
-    """
-    conn = get_db()
-    try:
-        pw_hash = hash_password(password) if password else None
-        conn.execute(
-            'INSERT INTO users (name, email, password_hash, google_id, role) VALUES (?, ?, ?, ?, ?)',
-            (name, email, pw_hash, google_id, role)
-        )
-        conn.commit()
+    # Try to find by email (existing user migrating to Clerk)
+    if email:
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        if user:
+            # Link existing account to Clerk
+            conn.execute(
+                'UPDATE users SET clerk_id = ?, name = ? WHERE email = ?',
+                (clerk_id, name or user['name'], email)
+            )
+            conn.commit()
+            user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            conn.close()
+            return dict(user)
+
+    # Create new user
+    try:
+        conn.execute(
+            'INSERT INTO users (name, email, clerk_id, role) VALUES (?, ?, ?, ?)',
+            (name or 'User', email or f'{clerk_id}@clerk.user', clerk_id, 'user')
+        )
+        conn.commit()
+        user = conn.execute('SELECT * FROM users WHERE clerk_id = ?', (clerk_id,)).fetchone()
         conn.close()
-
-        # Audit log
-        try:
-            from audit_log import log_account_created
-            from security import get_client_ip
-            method = 'google' if google_id else 'email'
-            log_account_created(get_client_ip(), email, method)
-        except Exception:
-            pass
-
-        return dict(user), None
+        return dict(user)
     except sqlite3.IntegrityError:
         conn.close()
-        return None, 'An account with this email already exists.'
+        return None
 
 
-def verify_user(email, password):
-    """
-    Verify email/password. Returns (user_dict, error_string).
-    SECURITY: Checks account lockout, verifies password with bcrypt,
-    increments failure counter on wrong password, resets on success.
-    """
-    conn = get_db()
-    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    conn.close()
-
-    ip = '0.0.0.0'
-    ua = ''
-    try:
-        from security import get_client_ip
-        ip = get_client_ip()
-        ua = request.headers.get('User-Agent', '')
-    except Exception:
-        pass
-
-    if not user:
-        # SECURITY: Log failure but use a generic message to prevent user enumeration
-        try:
-            from audit_log import log_login_failure
-            log_login_failure(ip, email, 'account not found', ua)
-        except Exception:
-            pass
-        return None, 'Invalid email or password.'
-
-    user_dict = dict(user)
-
-    # SECURITY: Check if account is locked
-    is_locked, minutes = _is_account_locked(user_dict)
-    if is_locked:
-        try:
-            from audit_log import log_login_failure
-            log_login_failure(ip, email, 'account locked', ua)
-        except Exception:
-            pass
-        return None, f'Account is locked. Try again in {minutes} minutes.'
-
-    if not user_dict.get('password_hash'):
-        return None, 'This account uses Google Sign-In. Please sign in with Google.'
-
-    if not verify_password(password, user_dict['password_hash']):
-        # SECURITY: Increment failed attempts
-        just_locked = _increment_failed_attempts(email)
-        try:
-            from audit_log import log_login_failure
-            log_login_failure(ip, email, 'wrong password', ua)
-        except Exception:
-            pass
-
-        if just_locked:
-            return None, f'Account locked after {MAX_FAILED_ATTEMPTS} failed attempts. Try again in {LOCKOUT_DURATION_MIN} minutes.'
-        return None, 'Invalid email or password.'
-
-    # SECURITY: Reset failed attempts on successful login
-    _reset_failed_attempts(email)
-
-    # Audit log — success
-    try:
-        from audit_log import log_login_success
-        log_login_success(ip, email, ua)
-    except Exception:
-        pass
-
-    return user_dict, None
-
-
-def get_user_by_email(email):
-    """Look up a user by email. Uses parameterized query."""
-    conn = get_db()
-    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    conn.close()
-    return dict(user) if user else None
-
-
-def get_user_by_google_id(google_id):
-    """Look up a user by Google ID. Uses parameterized query."""
-    conn = get_db()
-    user = conn.execute('SELECT * FROM users WHERE google_id = ?', (google_id,)).fetchone()
-    conn.close()
-    return dict(user) if user else None
-
+# ══════════════════════════════════════════════════════════════════
+# USER ACCESS FUNCTIONS
+# ══════════════════════════════════════════════════════════════════
 
 def get_current_user():
-    """Get the currently logged-in user from session."""
+    """
+    Get the currently authenticated user.
+    First checks Clerk session token, then falls back to Flask session.
+    """
+    # Try Clerk session first
+    clerk_id, email, name = _verify_clerk_session()
+    if clerk_id:
+        user = _get_or_create_local_user(clerk_id, email, name)
+        if user:
+            # Also set Flask session for backward compatibility
+            session['user_id'] = user['id']
+            session['user_name'] = user['name']
+            session['user_email'] = user.get('email', '')
+            return user
+
+    # Fallback to Flask session (for legacy support during migration)
     user_id = session.get('user_id')
     if not user_id:
         return None
@@ -393,52 +312,25 @@ def get_current_user():
     return dict(user) if user else None
 
 
-# ══════════════════════════════════════════════════════════════════
-# SESSION MANAGEMENT
-# ══════════════════════════════════════════════════════════════════
-
-def login_user(user):
-    """
-    Store user in session with hardened attributes.
-    SECURITY: Records login IP and timestamp for audit trail.
-    Makes session permanent with the configured timeout.
-    """
-    session.permanent = True     # SECURITY: Use PERMANENT_SESSION_LIFETIME
-    session['user_id'] = user['id']
-    session['user_name'] = user['name']
-    session['user_email'] = user['email']
-    session['user_role'] = user.get('role', 'user')
-
-    # SECURITY: Track login metadata for session validation
-    try:
-        from security import get_client_ip
-        session['login_ip'] = get_client_ip()
-    except Exception:
-        session['login_ip'] = request.remote_addr
-    session['login_time'] = datetime.now().isoformat()
-
-
-def logout_user():
-    """
-    SECURITY: Clear the entire session on logout, not just specific keys.
-    This prevents any stale session data from persisting.
-    """
-    session.clear()
-
-
-# ══════════════════════════════════════════════════════════════════
-# DECORATORS (Authentication + Authorization)
-# ══════════════════════════════════════════════════════════════════
-
 def login_required(f):
     """
-    Decorator to protect routes — redirects to /login if not authenticated.
-    SECURITY: Validates that the session contains a valid user_id.
+    Decorator to protect routes — redirects to /auth if not authenticated.
+    Checks Clerk session token first, then Flask session.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check Clerk session
+        clerk_id, email, name = _verify_clerk_session()
+        if clerk_id:
+            user = _get_or_create_local_user(clerk_id, email, name)
+            if user:
+                session['user_id'] = user['id']
+                session['user_name'] = user['name']
+                return f(*args, **kwargs)
+
+        # Fallback: check Flask session
         if 'user_id' not in session:
-            return redirect(url_for('login_page', next=request.path))
+            return redirect('/auth?redirect_url=' + request.path)
         return f(*args, **kwargs)
     return decorated_function
 
@@ -446,41 +338,97 @@ def login_required(f):
 def admin_required(f):
     """
     Decorator to protect admin routes — requires 'admin' role.
-    SECURITY: Checks both authentication AND authorization.
-    Returns 403 if user is not an admin.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return redirect(url_for('login_page', next=request.path))
-        if session.get('user_role') != 'admin':
+        user = get_current_user()
+        if not user:
+            return redirect('/auth?redirect_url=' + request.path)
+        if user.get('role') != 'admin':
             from flask import abort
             abort(403)
         return f(*args, **kwargs)
     return decorated_function
 
 
+# Legacy functions kept for backward compatibility
+def login_user(user):
+    """Store user in session (legacy support)."""
+    session.permanent = True
+    session['user_id'] = user['id']
+    session['user_name'] = user['name']
+    session['user_email'] = user.get('email', '')
+    session['user_role'] = user.get('role', 'user')
+
+
+def logout_user():
+    """Clear the session."""
+    session.clear()
+
+
+def get_user_by_email(email):
+    """Look up a user by email."""
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
+def create_user(name, email, password=None, google_id=None, role='user'):
+    """Create a new user (legacy support for migration)."""
+    conn = get_db()
+    try:
+        import bcrypt
+        pw_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8') if password else None
+        conn.execute(
+            'INSERT INTO users (name, email, password_hash, google_id, role) VALUES (?, ?, ?, ?, ?)',
+            (name, email, pw_hash, google_id, role)
+        )
+        conn.commit()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        conn.close()
+        return dict(user), None
+    except sqlite3.IntegrityError:
+        conn.close()
+        return None, 'An account with this email already exists.'
+
+
+def verify_user(email, password):
+    """Verify email/password (legacy support)."""
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    conn.close()
+    if not user:
+        return None, 'Invalid email or password.'
+    user_dict = dict(user)
+    if not user_dict.get('password_hash'):
+        return None, 'Please sign in with Clerk.'
+    try:
+        import bcrypt
+        if bcrypt.checkpw(password.encode('utf-8'), user_dict['password_hash'].encode('utf-8')):
+            return user_dict, None
+    except Exception:
+        pass
+    return None, 'Invalid email or password.'
+
+
+def get_user_by_google_id(google_id):
+    """Look up a user by Google ID."""
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE google_id = ?', (google_id,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+
 # ══════════════════════════════════════════════════════════════════
 # ADMIN UTILITIES
 # ══════════════════════════════════════════════════════════════════
 
-def promote_to_admin(email):
-    """Promote a user to admin role. Returns success boolean."""
-    conn = get_db()
-    result = conn.execute(
-        'UPDATE users SET role = ? WHERE email = ?', ('admin', email)
-    )
-    conn.commit()
-    changed = result.rowcount > 0
-    conn.close()
-    return changed
-
-
 def list_users(limit=100):
-    """List all users (for admin dashboard). Excludes password hashes."""
+    """List all users (for admin dashboard)."""
     conn = get_db()
     rows = conn.execute(
-        'SELECT id, name, email, role, failed_attempts, locked_until, created_at '
+        'SELECT id, name, email, role, clerk_id, created_at '
         'FROM users ORDER BY id DESC LIMIT ?',
         (limit,)
     ).fetchall()
@@ -488,18 +436,12 @@ def list_users(limit=100):
     return [dict(r) for r in rows]
 
 
-def unlock_account(email):
-    """Manually unlock a locked account."""
-    _reset_failed_attempts(email)
-    return True
-
-
 # ══════════════════════════════════════════════════════════════════
 # WISHLIST
 # ══════════════════════════════════════════════════════════════════
 
 def add_to_wishlist(user_id, book_title, book_author='', book_image=''):
-    """Add a book to a user's wishlist. Returns (success, error)."""
+    """Add a book to a user's wishlist."""
     conn = get_db()
     try:
         conn.execute(
@@ -507,10 +449,6 @@ def add_to_wishlist(user_id, book_title, book_author='', book_image=''):
             (user_id, book_title, book_author, book_image)
         )
         conn.commit()
-        added = conn.execute(
-            'SELECT COUNT(*) FROM wishlist WHERE user_id=? AND book_title=?',
-            (user_id, book_title)
-        ).fetchone()[0]
         conn.close()
         return True, None
     except Exception as e:
@@ -521,10 +459,7 @@ def add_to_wishlist(user_id, book_title, book_author='', book_image=''):
 def remove_from_wishlist(user_id, book_title):
     """Remove a book from a user's wishlist."""
     conn = get_db()
-    conn.execute(
-        'DELETE FROM wishlist WHERE user_id=? AND book_title=?',
-        (user_id, book_title)
-    )
+    conn.execute('DELETE FROM wishlist WHERE user_id=? AND book_title=?', (user_id, book_title))
     conn.commit()
     conn.close()
 
@@ -557,7 +492,7 @@ def is_wishlisted(user_id, book_title):
 # ══════════════════════════════════════════════════════════════════
 
 def add_to_history(user_id, book_title, book_author='', book_image=''):
-    """Add a book to a user's reading history. Upserts (updates timestamp if exists)."""
+    """Add a book to a user's reading history."""
     conn = get_db()
     try:
         conn.execute(
@@ -575,7 +510,7 @@ def add_to_history(user_id, book_title, book_author='', book_image=''):
 
 
 def get_reading_history(user_id, limit=50):
-    """Return the user's reading history as a list of dicts, most recent first."""
+    """Return the user's reading history."""
     conn = get_db()
     rows = conn.execute(
         'SELECT book_title, book_author, book_image, read_at '
@@ -589,16 +524,13 @@ def get_reading_history(user_id, limit=50):
 def remove_from_history(user_id, book_title):
     """Remove a book from a user's reading history."""
     conn = get_db()
-    conn.execute(
-        'DELETE FROM reading_history WHERE user_id=? AND book_title=?',
-        (user_id, book_title)
-    )
+    conn.execute('DELETE FROM reading_history WHERE user_id=? AND book_title=?', (user_id, book_title))
     conn.commit()
     conn.close()
 
 
 def get_history_titles(user_id):
-    """Return just the titles from reading history (for genre analysis)."""
+    """Return just the titles from reading history."""
     conn = get_db()
     rows = conn.execute(
         'SELECT book_title FROM reading_history WHERE user_id=? ORDER BY read_at DESC',
@@ -613,7 +545,7 @@ def get_history_titles(user_id):
 # ══════════════════════════════════════════════════════════════════
 
 def rate_book(user_id, book_title, rating):
-    """Rate a book 1-5. Upserts (updates rating if already rated)."""
+    """Rate a book 1-5."""
     if not isinstance(rating, int) or rating < 1 or rating > 5:
         return False, 'Rating must be an integer between 1 and 5.'
     conn = get_db()
@@ -633,7 +565,7 @@ def rate_book(user_id, book_title, rating):
 
 
 def get_user_rating(user_id, book_title):
-    """Get a user's rating for a specific book. Returns int or None."""
+    """Get a user's rating for a specific book."""
     conn = get_db()
     row = conn.execute(
         'SELECT rating FROM ratings WHERE user_id=? AND book_title=?',
@@ -644,7 +576,7 @@ def get_user_rating(user_id, book_title):
 
 
 def get_user_ratings(user_id, limit=100):
-    """Return all books rated by a user, most recent first."""
+    """Return all books rated by a user."""
     conn = get_db()
     rows = conn.execute(
         'SELECT book_title, rating, rated_at '
@@ -655,26 +587,12 @@ def get_user_ratings(user_id, limit=100):
     return [dict(r) for r in rows]
 
 
-def get_book_avg_rating(book_title):
-    """Get the average user rating for a book. Returns (avg, count) or (None, 0)."""
-    conn = get_db()
-    row = conn.execute(
-        'SELECT AVG(rating) as avg_rating, COUNT(*) as count '
-        'FROM ratings WHERE book_title=?',
-        (book_title,)
-    ).fetchone()
-    conn.close()
-    if row and row['count'] > 0:
-        return round(row['avg_rating'], 1), row['count']
-    return None, 0
-
-
 # ══════════════════════════════════════════════════════════════════
 # USER PREFERENCES (Onboarding)
 # ══════════════════════════════════════════════════════════════════
 
 def save_genre_preferences(user_id, genres):
-    """Save a list of genre preferences for a user (replaces existing)."""
+    """Save a list of genre preferences for a user."""
     conn = get_db()
     try:
         conn.execute('DELETE FROM user_preferences WHERE user_id=?', (user_id,))

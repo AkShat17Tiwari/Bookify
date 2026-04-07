@@ -654,12 +654,10 @@
             <li><a href="/multimodal">Multi-Modal</a></li>
             <li><a href="#contact">Contact</a></li>
         </ul>
-        {% if user %}
         <div class="nav-right">
-            <a href="/profile" class="nav-avatar" title="My Profile">{{ user.name[0].upper() }}</a>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <a href="/profile" class="nav-avatar" title="My Profile">{% if user %}{{ user.name[0].upper() }}{% else %}?{% endif %}</a>
+            <div id="clerk-user-btn" style="display:inline-flex;"></div>
         </div>
-        {% endif %}
         <button class="hamburger" id="hamburger" aria-label="Menu">
             <span></span><span></span><span></span>
         </button>
@@ -671,7 +669,7 @@
         <a href="/for_you">🎯 For You</a>
         <a href="/multimodal">🧬 Multi-Modal</a>
         <a href="/profile">👤 Profile</a>
-        <a href="/logout" style="color:#f87171;">↩ Logout</a>
+        <a href="#" onclick="clerkSignOut()" style="color:#f87171;">↩ Logout</a>
     </div>
 
     <section class="hero">
@@ -1151,6 +1149,51 @@
                 });
             }).catch(()=>{});
         })();
+    </script>
+
+    <!-- Clerk JS SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    <script>
+        async function initClerk() {
+            let attempts = 0;
+            while (typeof Clerk === 'undefined' && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            if (typeof Clerk === 'undefined') return;
+            await Clerk.load({
+                appearance: {
+                    variables: { colorPrimary: '#00e68a' },
+                    elements: {
+                        userButtonAvatarBox: { width: '34px', height: '34px' },
+                    }
+                }
+            });
+            const el = document.getElementById('clerk-user-btn');
+            if (el && Clerk.user) {
+                Clerk.mountUserButton(el, {
+                    afterSignOutUrl: '/auth',
+                    userProfileUrl: '/profile',
+                });
+                // Hide the static avatar since Clerk provides its own
+                const avatar = document.querySelector('.nav-avatar');
+                if (avatar) avatar.style.display = 'none';
+            }
+        }
+        function clerkSignOut() {
+            if (typeof Clerk !== 'undefined' && Clerk.signOut) {
+                Clerk.signOut().then(() => { window.location.href = '/auth'; });
+            } else {
+                window.location.href = '/logout';
+            }
+        }
+        initClerk();
     </script>
 
 </body>

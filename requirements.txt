@@ -6,3 +6,8 @@ scikit-learn
 Pillow
 requests
 bcrypt
+python-dotenv
+PyJWT
+httpx
+clerk-backend-api
+cryptography
