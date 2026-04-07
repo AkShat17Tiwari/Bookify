@@ -212,13 +212,26 @@
         // Derive the Frontend API domain from the publishable key
         // pk_test_<base64 encoded domain> or pk_live_<base64 encoded domain>
         function getClerkDomain(pk) {
-            const encoded = pk.split('_')[2];
-            return atob(encoded).slice(0, -1); // Remove trailing '$'
+            if (!pk) return "";
+            const parts = pk.split('_');
+            if (parts.length < 3) return "";
+            const encoded = parts[2];
+            try {
+                return atob(encoded).slice(0, -1); // Remove trailing '$'
+            } catch (e) {
+                return "";
+            }
         }
 
         (async function initClerk() {
             try {
+                if (!CLERK_PK) {
+                    throw new Error('Clerk publishable key is missing from the environment.');
+                }
                 const clerkDomain = getClerkDomain(CLERK_PK);
+                if (!clerkDomain) {
+                    throw new Error('Invalid Clerk publishable key format.');
+                }
                 console.log('Clerk domain:', clerkDomain);
 
                 // 1. Load the Clerk UI bundle first (required for prebuilt components)

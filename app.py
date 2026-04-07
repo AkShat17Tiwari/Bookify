@@ -112,7 +112,8 @@ import secrets as _secrets
 app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
 
 # ── Clerk configuration ──
-CLERK_PUBLISHABLE_KEY = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
+CLERK_PUBLISHABLE_KEY = os.environ.get('CLERK_PUBLISHABLE_KEY') or os.environ.get('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', '')
+CLERK_SECRET_KEY = os.environ.get('CLERK_SECRET_KEY', '')
 
 # ── Security middleware (headers, rate limiting, CSRF, input validation) ──
 from security import init_security
