@@ -117,7 +117,7 @@ def init_db():
         ('role', "TEXT NOT NULL DEFAULT 'user'"),
         ('failed_attempts', 'INTEGER NOT NULL DEFAULT 0'),
         ('locked_until', 'TEXT'),
-        ('clerk_id', 'TEXT UNIQUE'),
+        ('clerk_id', 'TEXT'),
     ]:
         try:
             conn.execute(f'ALTER TABLE users ADD COLUMN {col} {col_def}')

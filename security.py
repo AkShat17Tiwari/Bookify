@@ -335,8 +335,8 @@ def add_security_headers(response):
     These headers protect against XSS, clickjacking, MIME sniffing,
     and other browser-side attacks.
     """
-    # SECURITY: Prevent clickjacking by disallowing framing
-    response.headers['X-Frame-Options'] = 'DENY'
+    # SECURITY: Allow clickjacking framing exclusively for Hugging Face Spaces
+    # response.headers['X-Frame-Options'] = 'DENY'
 
     # SECURITY: Prevent MIME-type sniffing
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -356,6 +356,7 @@ def add_security_headers(response):
     # SECURITY: Content Security Policy — whitelist allowed content sources
     # Allow Clerk JS SDK, Google Fonts, face-api.js, and Clerk auth domains
     response.headers['Content-Security-Policy'] = (
+        "frame-ancestors 'self' https://huggingface.co; "
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.accounts.dev; "

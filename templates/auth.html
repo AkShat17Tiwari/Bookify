@@ -182,6 +182,31 @@
     </style>
 </head>
 <body>
+    <!-- Iframe Breakout Overlay for Hugging Face Spaces -->
+    <div id="iframe-breakout" style="display: none; position: fixed; inset: 0; background: rgba(7, 7, 13, 0.95); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; backdrop-filter: blur(10px);">
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; color: #fff; margin-bottom: 16px;">🛡️ Secure Login Required</h2>
+        <p style="color: #6b6b80; max-width: 450px; margin-bottom: 30px; line-height: 1.6; font-size: 1.05rem;">
+            Hugging Face runs this app inside a sandboxed iframe. To protect your session, modern browsers block secure authentication cookies inside cross-site frames!
+            <br><br>Please launch the app natively to sign in.
+        </p>
+        <a id="breakout-btn" href="#" target="_blank" style="background: linear-gradient(135deg, #00e68a, #00cc7a); color: #000; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 1.1rem; box-shadow: 0 10px 30px rgba(0,230,138,0.25); transition: transform 0.2s;">
+            Launch Full Web App 🚀
+        </a>
+    </div>
+    <script>
+        // Check if we are embedded in an iframe on the HF space host
+        if (window.self !== window.top && window.location.hostname.includes("hf.space")) {
+            const overlay = document.getElementById('iframe-breakout');
+            overlay.style.display = 'flex';
+            document.getElementById('breakout-btn').href = window.location.href; // open this exact auth page
+            document.body.style.overflow = 'hidden';
+            throw new Error("Stopped Clerk load: Iframe third-party cookie restrictions enforced.");
+        } else {
+            const overlay = document.getElementById('iframe-breakout');
+            if(overlay) overlay.remove();
+        }
+    </script>
+    
     <!-- Animated background orbs -->
     <div class="bg-orbs">
         <div class="orb"></div>

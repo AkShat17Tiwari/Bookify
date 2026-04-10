@@ -103,7 +103,7 @@ if genre_available:
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 app = Flask(__name__)
 

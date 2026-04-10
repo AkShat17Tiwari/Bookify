@@ -1,6 +1,15 @@
+---
+title: Bookify
+emoji: 📚
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # 📚 BOOKIFY — Intelligent Book Recommendation System
 
-### 🚀 **[Live Demo](https://bookify-n7pc.onrender.com)** | 💻 **[Localhost](http://127.0.0.1:5001)**
+### 🤗 **[Live on Hugging Face Spaces](https://huggingface.co/spaces/Akshat200343/bookify)** | 🚀 **[Render Demo](https://bookify-n7pc.onrender.com)** | 💻 **[Localhost](http://127.0.0.1:5001)**
 
 A full-stack book recommendation engine featuring collaborative filtering, deep learning (Neural Collaborative Filtering), genre-based search, and webcam-powered mood detection for personalized reading suggestions.
 
@@ -162,13 +171,15 @@ streamlit run streamlit_app.py
 
 ## 🌍 Deployment
 
-### **[🔗 Visit Live App](https://bookify-n7pc.onrender.com)**
+### **[🤗 Visit Live on Hugging Face Spaces](https://huggingface.co/spaces/Akshat200343/bookify)**
 
-To deploy your own instance:
-1. Fork the repository
-2. Create a new Web Service on Render
-3. Connect your GitHub repo
-4. Render will automatically detect the `render.yaml` configuration
+This project is fully containerized and hosted reliably on Hugging Face Spaces.
+
+To deploy your own instance on Hugging Face:
+1. Create a new Docker Space on Hugging Face.
+2. Push this repository including the `Dockerfile` and YAML metadata.
+3. Because data matrices (`.pkl`) are massive, you must track them with `git-lfs` before pushing.
+4. Set your `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in the Space's Settings under **Variables and secrets**.
 
 ---
 
