@@ -230,6 +230,84 @@ def _verify_clerk_session():
         return None, None, None
 
 
+def _verify_bearer_token(token):
+    """
+    Verify a Bearer token from the Authorization header (React frontend).
+    Uses the same JWT verification logic as _verify_clerk_session.
+    """
+    if not token:
+        return None, None, None
+
+    try:
+        import jwt
+        import httpx
+        import base64
+
+        pk = CLERK_PUBLISHABLE_KEY
+        if pk.startswith('pk_test_') or pk.startswith('pk_live_'):
+            encoded = pk.split('_', 2)[2]
+            padding = 4 - len(encoded) % 4
+            if padding != 4:
+                encoded += '=' * padding
+            frontend_api = base64.b64decode(encoded).decode('utf-8').rstrip('$')
+        else:
+            frontend_api = 'clerk.accounts.dev'
+
+        jwks_url = f'https://{frontend_api}/.well-known/jwks.json'
+        resp = httpx.get(jwks_url, timeout=5)
+        jwks = resp.json()
+
+        header = jwt.get_unverified_header(token)
+        kid = header.get('kid')
+
+        signing_key = None
+        for key_data in jwks.get('keys', []):
+            if key_data.get('kid') == kid:
+                from jwt.algorithms import RSAAlgorithm
+                signing_key = RSAAlgorithm.from_jwk(key_data)
+                break
+
+        if not signing_key:
+            return None, None, None
+
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=['RS256'],
+            options={'verify_aud': False, 'verify_iss': True},
+            issuer=f'https://{frontend_api}',
+        )
+
+        clerk_user_id = payload.get('sub')
+        email = payload.get('email', '')
+        name = payload.get('name', '')
+
+        if clerk_user_id and (not email or not name):
+            try:
+                from clerk_backend_api import Clerk
+                sdk = Clerk(bearer_auth=CLERK_SECRET_KEY)
+                clerk_user = sdk.users.get(user_id=clerk_user_id)
+                if clerk_user:
+                    if not email:
+                        emails = clerk_user.email_addresses or []
+                        if emails:
+                            email = emails[0].email_address
+                    if not name:
+                        name = f"{clerk_user.first_name or ''} {clerk_user.last_name or ''}".strip()
+                        if not name:
+                            name = email.split('@')[0] if email else 'User'
+            except Exception as e:
+                print(f"⚠️ Clerk API lookup failed: {e}")
+                if not name:
+                    name = email.split('@')[0] if email else 'User'
+
+        return clerk_user_id, email, name
+
+    except Exception as e:
+        print(f"⚠️ Bearer token verification error: {e}")
+        return None, None, None
+
+
 def _get_or_create_local_user(clerk_id, email, name):
     """
     Get or create a local user record from Clerk user data.
@@ -315,11 +393,29 @@ def get_current_user():
 def login_required(f):
     """
     Decorator to protect routes — redirects to /auth if not authenticated.
-    Checks Clerk session token first, then Flask session.
+    Checks:
+      1. Bearer token from Authorization header (React frontend)
+      2. Clerk __session cookie
+      3. Flask session
+    Returns JSON 401 for API/AJAX requests instead of HTML redirect.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check Clerk session
+        # 1. Check Bearer token from React frontend
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            bearer_token = auth_header[7:]
+            if bearer_token:
+                # Temporarily set the token as __session for verification
+                clerk_id, email, name = _verify_bearer_token(bearer_token)
+                if clerk_id:
+                    user = _get_or_create_local_user(clerk_id, email, name)
+                    if user:
+                        session['user_id'] = user['id']
+                        session['user_name'] = user['name']
+                        return f(*args, **kwargs)
+
+        # 2. Check Clerk __session cookie
         clerk_id, email, name = _verify_clerk_session()
         if clerk_id:
             user = _get_or_create_local_user(clerk_id, email, name)
@@ -328,8 +424,20 @@ def login_required(f):
                 session['user_name'] = user['name']
                 return f(*args, **kwargs)
 
-        # Fallback: check Flask session
+        # 3. Fallback: check Flask session
         if 'user_id' not in session:
+            # Return JSON 401 for API/AJAX requests
+            if (request.headers.get('Accept', '').startswith('application/json') or
+                request.headers.get('Content-Type', '').startswith('application/json') or
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                request.path.startswith('/api/') or
+                request.path.startswith('/autocomplete') or
+                request.path.startswith('/mood_recommend') or
+                request.path.startswith('/wishlist') or
+                request.path.startswith('/history') or
+                request.path.startswith('/rate') or
+                'fetch' in request.headers.get('Sec-Fetch-Mode', '')):
+                return jsonify({'error': 'Authentication required'}), 401
             return redirect('/auth?redirect_url=' + request.path)
         return f(*args, **kwargs)
     return decorated_function

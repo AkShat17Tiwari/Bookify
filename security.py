@@ -36,8 +36,8 @@ CSRF_SECRET = os.environ.get('CSRF_SECRET', '')
 RATE_LIMITS = {
     'login':     {'window': 60, 'max': 5},     # 5 login attempts per minute
     'signup':    {'window': 60, 'max': 3},     # 3 signups per minute per IP
-    'api':       {'window': 60, 'max': 60},    # 60 API calls per minute
-    'default':   {'window': 60, 'max': 120},   # 120 page loads per minute
+    'api':       {'window': 60, 'max': 300},   # 300 API calls per minute (high for dev proxy)
+    'default':   {'window': 60, 'max': 600},   # 600 page loads per minute
 }
 
 # SECURITY: Auto-block IP after this many violations in the window
@@ -440,8 +440,11 @@ def request_guard():
 
     ip = get_client_ip()
 
+    # ── Skip security checks for localhost (Vite dev proxy) ──
+    is_localhost = ip in ('127.0.0.1', '::1', 'localhost')
+
     # ── 2. IP block check ──
-    if _ip_blocker.is_blocked(ip):
+    if not is_localhost and _ip_blocker.is_blocked(ip):
         logger.warning(f"SECURITY: Blocked IP attempted access: {ip}")
         abort(403)
 
@@ -455,15 +458,16 @@ def request_guard():
     else:
         category = 'default'
 
-    is_limited, retry_after = _rate_limiter.is_limited(ip, category)
-    if is_limited:
-        _ip_blocker.record_violation(ip)
-        logger.warning(f"SECURITY: Rate limit exceeded for {ip} on {category}")
-        response = make_response(
-            f'Rate limit exceeded. Try again in {retry_after} seconds.', 429
-        )
-        response.headers['Retry-After'] = str(retry_after)
-        return response
+    if not is_localhost:
+        is_limited, retry_after = _rate_limiter.is_limited(ip, category)
+        if is_limited:
+            _ip_blocker.record_violation(ip)
+            logger.warning(f"SECURITY: Rate limit exceeded for {ip} on {category}")
+            response = make_response(
+                f'Rate limit exceeded. Try again in {retry_after} seconds.', 429
+            )
+            response.headers['Retry-After'] = str(retry_after)
+            return response
 
     # ── 4. CSRF validation on state-changing methods ──
     if request.method in ('POST', 'PUT', 'DELETE'):
@@ -472,8 +476,9 @@ def request_guard():
                        '/history', '/multimodal_recommend', '/mood_recommend',
                        '/recommend_books', '/autocomplete', '/rate', '/history/remove',
                        '/onboarding', '/wishlist/add', '/wishlist/remove',
-                       '/wishlist/check', '/rating/check')
-        if path not in csrf_exempt:
+                       '/wishlist/check', '/rating/check',
+                       '/api/recommend', '/api/popular', '/api/for_you', '/api/profile')
+        if path not in csrf_exempt and not path.startswith('/api/'):
             token = (request.form.get('csrf_token') or
                      request.headers.get('X-CSRF-Token', ''))
             if not validate_csrf_token(token):

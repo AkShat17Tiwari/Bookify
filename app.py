@@ -954,5 +954,195 @@ def favicon():
     return '', 204
 
 
+# ══════════════════════════════════════════════════════════════════
+# JSON API ENDPOINTS (for React frontend)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/api/popular')
+def api_popular():
+    """Return popular books as JSON for the React frontend."""
+    total_users_count = len(list_users(limit=10000))
+    books = []
+    for i in range(len(popular_df)):
+        books.append({
+            'title': popular_df.iloc[i]['Book-Title'],
+            'author': popular_df.iloc[i]['Book-Author'],
+            'image': popular_df.iloc[i]['Image-URL-M'],
+            'votes': int(popular_df.iloc[i]['num_ratings']),
+            'rating': float(popular_df.iloc[i]['avg_rating']),
+        })
+    return jsonify({
+        'books': books,
+        'stats': {
+            'total_books': int(pt.shape[0]),
+            'total_genres': len(all_genres) if genre_available else 23,
+            'total_users': int(pt.shape[1]) + total_users_count,
+        },
+        'model_accuracy': model_accuracy,
+    })
+
+
+@app.route('/api/recommend', methods=['POST'])
+def api_recommend():
+    """JSON recommendation endpoint for the React frontend."""
+    user_input = request.form.get('user_input', '').strip()
+    mode = request.form.get('mode', 'classic')
+
+    # Check genre
+    if user_input.startswith('📂 Genre: '):
+        genre_name = user_input.replace('📂 Genre: ', '').strip()
+        if genre_name in genre_books:
+            data, matched_genre = get_genre_recommendations(genre_name, mode)
+            return jsonify({
+                'data': [{'title': d[0], 'author': d[1], 'image': d[2], 'reasons': d[3]} for d in data],
+                'genre_mode': True,
+                'matched_genre': matched_genre,
+            })
+
+    detected_genre = detect_genre(user_input)
+    if detected_genre:
+        data, matched_genre = get_genre_recommendations(detected_genre, mode)
+        return jsonify({
+            'data': [{'title': d[0], 'author': d[1], 'image': d[2], 'reasons': d[3]} for d in data],
+            'genre_mode': True,
+            'matched_genre': matched_genre,
+        })
+
+    matches = np.where(pt.index == user_input)[0]
+    if len(matches) == 0:
+        close = get_close_matches(user_input, all_titles, n=1, cutoff=0.4)
+        if close:
+            user_input = close[0]
+            matches = np.where(pt.index == user_input)[0]
+
+    if len(matches) == 0:
+        if genre_available and user_input in genre_map:
+            book_genres = genre_map[user_input]
+            if book_genres:
+                primary_genre = book_genres[0]
+                data, matched_genre = get_genre_recommendations(primary_genre, mode, count=8,
+                    extra_reasons=[f'📚 Related to "{user_input}"'])
+                return jsonify({
+                    'data': [{'title': d[0], 'author': d[1], 'image': d[2], 'reasons': d[3]} for d in data],
+                    'genre_mode': True,
+                    'matched_genre': f'Books like "{user_input}" ({matched_genre})',
+                })
+        return jsonify({'data': [], 'error': f'No book found matching "{user_input}".'})
+
+    index = matches[0]
+    input_genres = genre_map.get(user_input, []) if genre_available else []
+    input_author = book_info_lookup.get(user_input, {}).get('author', '') if user_input in book_info_lookup else ''
+
+    if mode == 'ai' and ncf_available:
+        scores = ncf_similarity_scores
+    else:
+        scores = similarity_scores
+
+    similar_items = sorted(list(enumerate(scores[index])), key=lambda x: x[1], reverse=True)[1:9]
+
+    data = []
+    for i_item in similar_items:
+        title = pt.index[i_item[0]]
+        sim_score = float(i_item[1])
+        if title in book_info_lookup:
+            info = book_info_lookup[title]
+            reasons = [f"📖 Similar to {user_input} ({sim_score:.0%} match)"]
+            rec_genres = genre_map.get(title, []) if genre_available else []
+            shared = set(input_genres) & set(rec_genres)
+            shared.discard('Fiction')
+            if shared:
+                reasons.append(f"📂 Shares genre: {', '.join(sorted(shared))}")
+            if input_author and info.get('author', '') == input_author:
+                reasons.append(f"✍️ Same author: {input_author}")
+            if title in popular_df['Book-Title'].values:
+                reasons.append("🔥 Popular among readers")
+            data.append({'title': title, 'author': info['author'], 'image': info['image'], 'reasons': reasons})
+
+    return jsonify({'data': data, 'matched_title': user_input})
+
+
+@app.route('/api/for_you')
+def api_for_you():
+    """JSON for-you recommendations."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'books': [], 'inferred_genres': [], 'has_history': False})
+
+    hist = get_history_titles(user['id'])
+    genre_votes_map = {}
+    for title in hist:
+        book_genres = genre_map.get(title, []) if genre_available else []
+        for g in book_genres:
+            genre_votes_map[g] = genre_votes_map.get(g, 0) + 1
+
+    if not genre_votes_map:
+        prefs = get_genre_preferences(user['id'])
+        if prefs:
+            for g in prefs:
+                genre_votes_map[g] = genre_votes_map.get(g, 0) + 1
+
+    if not genre_votes_map:
+        return jsonify({'books': [], 'inferred_genres': [], 'has_history': False})
+
+    sorted_genres = sorted(genre_votes_map.items(), key=lambda x: x[1], reverse=True)
+    top_genres = [g for g, _ in sorted_genres[:4]]
+
+    all_books = []
+    seen = set()
+    for gname in top_genres:
+        reason = '🏗️ Based on your reading history' if hist else '✨ Based on your genre preferences'
+        recs, _ = get_genre_recommendations(gname, 'classic', count=6, extra_reasons=[reason])
+        for book in recs:
+            if book[0] not in seen:
+                seen.add(book[0])
+                all_books.append({'title': book[0], 'author': book[1], 'image': book[2], 'reasons': book[3]})
+
+    return jsonify({'books': all_books[:12], 'inferred_genres': top_genres, 'has_history': True})
+
+
+@app.route('/api/profile')
+def api_profile():
+    """JSON profile data."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    wishlist_books = get_wishlist(user['id'])
+    history_rows = get_reading_history(user['id'])
+    history_data = []
+    for row in history_rows:
+        genres = genre_map.get(row['book_title'], []) if genre_available else []
+        history_data.append({
+            'title': row['book_title'],
+            'genres': genres,
+            'author': row.get('book_author', 'Unknown Author'),
+            'image': row.get('book_image', ''),
+        })
+    user_ratings = get_user_ratings(user['id'])
+    for r in user_ratings:
+        info = book_info_lookup.get(r['book_title'], {})
+        r['author'] = info.get('author', 'Unknown Author')
+        r['image'] = info.get('image', '')
+
+    return jsonify({
+        'user': user,
+        'wishlist': wishlist_books,
+        'history': history_data,
+        'ratings': user_ratings,
+    })
+
+
+# ── CORS headers for React dev server ──
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin', '')
+    if origin in ('http://localhost:5173', 'http://127.0.0.1:5173'):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
