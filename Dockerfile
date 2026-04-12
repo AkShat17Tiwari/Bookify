@@ -1,4 +1,12 @@
-# Use the official Python image
+# Stage 1: Build React Frontend
+FROM node:22-alpine AS frontend-builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python Backend
 FROM python:3.11-slim
 
 # Set the working directory to /app
@@ -31,6 +39,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy the rest of the application code
 COPY --chown=user . .
+
+# Copy compiled frontend from Stage 1 into the expected location
+COPY --from=frontend-builder --chown=user /app/dist $HOME/app/frontend/dist
 
 # Expose the default port expected by Hugging Face Spaces
 EXPOSE 7860

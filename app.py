@@ -105,7 +105,27 @@ if genre_available:
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend/dist')
+
+# Serve React static assets (JS, CSS, images) from /assets/
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return app.send_static_file('assets/' + filename)
+
+# Serve other static root files (vite.svg, favicon, etc.)
+@app.route('/vite.svg')
+def serve_vite_svg():
+    return app.send_static_file('vite.svg')
+
+# Serve React app at root
+@app.route('/')
+def serve_root():
+    return app.send_static_file('index.html')
+
+# Catch-all: serve React index.html for any unmatched route (SPA client-side routing)
+@app.errorhandler(404)
+def not_found(e):
+    return app.send_static_file('index.html')
 
 # SECURITY: Generate a cryptographically random secret key if not set in env.
 import secrets as _secrets
@@ -139,7 +159,7 @@ def inject_clerk():
 # AUTH ROUTES (Clerk)
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/auth')
+@app.route('/legacy_auth')
 def auth_page():
     """Render the Clerk sign-in page."""
     # If already authenticated, redirect to home
@@ -151,18 +171,18 @@ def auth_page():
     redirect_url = request.args.get('redirect_url', '/')
     return render_template('auth.html', redirect_url=redirect_url)
 
-@app.route('/login')
+@app.route('/legacy_login')
 def login_page():
     """Legacy redirect — send to Clerk auth page."""
     next_url = request.args.get('next', '/')
     return redirect('/auth?redirect_url=' + next_url)
 
-@app.route('/signup')
+@app.route('/legacy_signup')
 def signup_page():
     """Legacy redirect — send to Clerk auth page."""
     return redirect('/auth')
 
-@app.route('/logout')
+@app.route('/legacy_logout')
 def logout():
     logout_user()
     return redirect('/auth')
@@ -270,7 +290,7 @@ def get_genre_recommendations(genre_name, mode='classic', count=8, extra_reasons
     return data, genre_name
 
 
-@app.route('/')
+@app.route('/legacy_index')
 @login_required
 def index():
     user = get_current_user()
@@ -288,7 +308,7 @@ def index():
                            model_accuracy=model_accuracy
                            )
 
-@app.route('/recommend')
+@app.route('/legacy_recommend')
 @login_required
 def recommend_ui():
     user = get_current_user()
@@ -306,7 +326,7 @@ EMOTION_GENRES = {
     'neutral':   ['Literary Fiction', 'Classics', 'Non-Fiction'],
 }
 
-@app.route('/mood')
+@app.route('/legacy_mood')
 @login_required
 def mood_ui():
     user = get_current_user()
@@ -387,7 +407,7 @@ def autocomplete():
 
     return jsonify(suggestions[:12])
 
-@app.route('/recommend_books', methods=['POST'])
+@app.route('/legacy_recommend_books', methods=['POST'])
 @login_required
 def recommend():
     user = get_current_user()
@@ -496,7 +516,7 @@ def recommend():
 # MULTI-MODAL RECOMMENDATION SYSTEM
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/multimodal')
+@app.route('/legacy_multimodal')
 @login_required
 def multimodal_ui():
     user = get_current_user()
@@ -630,7 +650,7 @@ def wishlist_check():
 # PROFILE & FOR YOU ROUTES
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/profile')
+@app.route('/legacy_profile')
 @login_required
 def profile_page():
     user = get_current_user()
@@ -658,7 +678,7 @@ def profile_page():
                            ratings=user_ratings)
 
 
-@app.route('/for_you')
+@app.route('/legacy_for_you')
 @login_required
 def for_you_page():
     user = get_current_user()
@@ -843,7 +863,7 @@ def multimodal_recommend():
 # ONBOARDING
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/onboarding', methods=['GET', 'POST'])
+@app.route('/legacy_onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding_page():
     """Genre quiz for new users. GET shows the picker, POST saves preferences."""
@@ -918,7 +938,7 @@ def book_details():
 # ADMIN ROUTES  (RBAC protected)
 # ══════════════════════════════════════════════════════════════════
 
-@app.route('/admin')
+@app.route('/legacy_admin')
 @admin_required
 def admin_dashboard():
     """Admin dashboard — only accessible by users with 'admin' role."""
