@@ -1,32 +1,70 @@
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
 import BookCard from '../components/UI/BookCard';
 import ProgressRing from '../components/UI/ProgressRing';
 import GenreCard from '../components/UI/GenreCard';
-
+import SkeletonLoader from '../components/UI/SkeletonLoader';
 import Button from '../components/UI/Button';
+import { useApi } from '../lib/api';
+import type { Book, WishlistItem, HistoryItem } from '../lib/api';
 import { HiOutlineBookOpen, HiOutlineHeart, HiOutlineClock, HiOutlineSearch, HiOutlineChartBar, HiOutlineFire } from 'react-icons/hi';
 import { RiSparklingFill } from 'react-icons/ri';
 
-const SAMPLE_FOR_YOU = [
-  { title: 'The Kite Runner', author: 'Khaled Hosseini', image: 'https://covers.openlibrary.org/b/isbn/1594631931-M.jpg', rating: 4.6 },
-  { title: 'Life of Pi', author: 'Yann Martel', image: 'https://covers.openlibrary.org/b/isbn/0156027321-M.jpg', rating: 4.3 },
-  { title: 'The Alchemist', author: 'Paulo Coelho', image: 'https://covers.openlibrary.org/b/isbn/0061122416-M.jpg', rating: 4.5 },
-  { title: 'Memoirs of a Geisha', author: 'Arthur Golden', image: 'https://covers.openlibrary.org/b/isbn/0375700439-M.jpg', rating: 4.2 },
-];
-
-const RECENT_GENRES = ['Literary Fiction', 'Mystery/Thriller', 'Romance', 'Science Fiction'];
-
 export default function Dashboard() {
   const navigate = useNavigate();
+  const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
 
+  const [forYouBooks, setForYouBooks] = useState<Book[]>([]);
+  const [inferredGenres, setInferredGenres] = useState<string[]>([]);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [historyCount, setHistoryCount] = useState(0);
+  const [ratingsCount, setRatingsCount] = useState(0);
+  const [avgRating, setAvgRating] = useState('—');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [forYouData, profileData] = await Promise.allSettled([
+          apiRef.current.getForYou(),
+          apiRef.current.getProfile(),
+        ]);
+
+        if (forYouData.status === 'fulfilled') {
+          setForYouBooks(forYouData.value.books || []);
+          setInferredGenres(forYouData.value.inferred_genres || []);
+        }
+
+        if (profileData.status === 'fulfilled') {
+          const p = profileData.value;
+          setWishlistCount(p.wishlist?.length || 0);
+          setHistoryCount(p.history?.length || 0);
+          setRatingsCount(p.ratings?.length || 0);
+          if (p.ratings && p.ratings.length > 0) {
+            const avg = p.ratings.reduce((s: number, r: any) => s + (r.rating || 0), 0) / p.ratings.length;
+            setAvgRating(avg.toFixed(1));
+          }
+        }
+      } catch { }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const displayGenres = inferredGenres.length > 0
+    ? inferredGenres.slice(0, 4)
+    : ['Literary Fiction', 'Mystery/Thriller', 'Romance', 'Science Fiction'];
 
   const stats = [
-    { label: 'Books Read', value: '24', icon: HiOutlineBookOpen, color: '#4A90D9', bg: 'rgba(74,144,217,0.06)' },
-    { label: 'Wishlist', value: '12', icon: HiOutlineHeart, color: '#F43F5E', bg: 'rgba(244,63,94,0.06)' },
-    { label: 'This Month', value: '5', icon: HiOutlineClock, color: '#8B5CF6', bg: 'rgba(139,92,246,0.06)' },
-    { label: 'Avg Rating', value: '4.3', icon: HiOutlineFire, color: '#F59E0B', bg: 'rgba(245,158,11,0.06)' },
+    { label: 'Books Read', value: String(historyCount), icon: HiOutlineBookOpen, color: '#4A90D9', bg: 'rgba(74,144,217,0.06)' },
+    { label: 'Wishlist', value: String(wishlistCount), icon: HiOutlineHeart, color: '#F43F5E', bg: 'rgba(244,63,94,0.06)' },
+    { label: 'Ratings', value: String(ratingsCount), icon: HiOutlineClock, color: '#8B5CF6', bg: 'rgba(139,92,246,0.06)' },
+    { label: 'Avg Rating', value: avgRating, icon: HiOutlineFire, color: '#F59E0B', bg: 'rgba(245,158,11,0.06)' },
   ];
 
   return (
@@ -105,19 +143,33 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {SAMPLE_FOR_YOU.map((book, i) => (
-                  <BookCard
-                    key={book.title}
-                    title={book.title}
-                    author={book.author}
-                    image={book.image}
-                    rating={book.rating}
-                    index={i}
-                    onClick={() => navigate(`/book/${encodeURIComponent(book.title)}`)}
-                  />
-                ))}
-              </div>
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <SkeletonLoader variant="card" count={4} />
+                </div>
+              ) : forYouBooks.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {forYouBooks.slice(0, 4).map((book, i) => (
+                    <BookCard
+                      key={book.title}
+                      title={book.title}
+                      author={book.author}
+                      image={book.image}
+                      reasons={book.reasons}
+                      index={i}
+                      onClick={() => navigate(`/book/${encodeURIComponent(book.title)}`)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 rounded-[20px]" style={{
+                  background: 'linear-gradient(145deg, #ffffff, #f8f6f2)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.04)',
+                }}>
+                  <p className="text-text-muted text-sm mb-4">Start reading and rating books to get personalized recommendations!</p>
+                  <Button variant="primary" onClick={() => navigate('/search')}>Discover Books</Button>
+                </div>
+              )}
             </motion.div>
 
             {/* Quick Actions */}
@@ -131,7 +183,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   { label: 'Discover Books', desc: 'Search & explore', icon: HiOutlineSearch, path: '/search', color: '#4A90D9', bg: 'rgba(74,144,217,0.06)' },
-                  { label: 'My Wishlist', desc: 'Saved for later', icon: HiOutlineHeart, path: '/wishlist', color: '#F43F5E', bg: 'rgba(244,63,94,0.06)' },
+                  { label: 'My Wishlist', desc: `${wishlistCount} saved`, icon: HiOutlineHeart, path: '/wishlist', color: '#F43F5E', bg: 'rgba(244,63,94,0.06)' },
                   { label: 'Analytics', desc: 'Reading insights', icon: HiOutlineChartBar, path: '/history', color: '#8B5CF6', bg: 'rgba(139,92,246,0.06)' },
                 ].map((action, i) => (
                   <motion.div
@@ -177,8 +229,13 @@ export default function Dashboard() {
               }}
             >
               <h3 className="text-sm font-bold text-text-primary mb-4">📚 Reading Goal</h3>
-              <ProgressRing progress={68} size={130} label="Complete" sublabel="24 of 36 books" />
-              <p className="text-xs text-text-muted mt-3">12 books to go this year!</p>
+              <ProgressRing
+                progress={historyCount > 0 ? Math.min(Math.round((historyCount / 36) * 100), 100) : 0}
+                size={130}
+                label="Complete"
+                sublabel={`${historyCount} of 36 books`}
+              />
+              <p className="text-xs text-text-muted mt-3">{Math.max(36 - historyCount, 0)} books to go this year!</p>
             </motion.div>
 
             {/* Top Genres */}
@@ -194,7 +251,7 @@ export default function Dashboard() {
             >
               <h3 className="text-sm font-bold text-text-primary mb-4">🎯 Your Top Genres</h3>
               <div className="grid grid-cols-2 gap-2.5">
-                {RECENT_GENRES.map((genre, i) => (
+                {displayGenres.map((genre, i) => (
                   <GenreCard key={genre} genre={genre} index={i} onClick={() => navigate(`/search?genre=${encodeURIComponent(genre)}`)} />
                 ))}
               </div>
@@ -213,12 +270,14 @@ export default function Dashboard() {
             >
               <div className="text-white">
                 <div className="text-4xl mb-2">🔥</div>
-                <div className="text-3xl font-extrabold">7 Days</div>
+                <div className="text-3xl font-extrabold">{historyCount > 0 ? Math.min(historyCount, 7) : 0} Days</div>
                 <div className="text-sm text-white/70 font-medium mt-1">Reading Streak</div>
                 <div className="flex gap-1.5 mt-3">
                   {Array.from({ length: 7 }, (_, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">
-                      ✓
+                    <div key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                      i < Math.min(historyCount, 7) ? 'bg-white/30' : 'bg-white/10'
+                    }`}>
+                      {i < Math.min(historyCount, 7) ? '✓' : ''}
                     </div>
                   ))}
                 </div>

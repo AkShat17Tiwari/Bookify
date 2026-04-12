@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useUser } from '@clerk/clerk-react';
 import { staggerContainer, fadeUp } from '../lib/animations';
@@ -10,13 +10,15 @@ import { RiSparklingFill } from 'react-icons/ri';
 export default function Profile() {
   const { user: clerkUser } = useUser();
   const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const data = await api.getProfile();
+        const data = await apiRef.current.getProfile();
         setProfileData(data);
       } catch (err) {
         console.error('Failed to load profile:', err);
@@ -25,7 +27,7 @@ export default function Profile() {
       }
     };
     fetchProfile();
-  }, [api]);
+  }, []);
 
   return (
     <div className="min-h-screen px-6 py-12">

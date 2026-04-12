@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
@@ -22,6 +23,7 @@ export default function Multimodal() {
   const api = useApi();
   const apiRef = useRef(api);
   apiRef.current = api;
+  const { getToken } = useAuth();
 
   const [modalities, setModalities] = useState<ModalityState>({
     text: '', voice: '', coverGenres: [], emotion: '', historyGenres: [],
@@ -82,9 +84,12 @@ export default function Multimodal() {
     if (!coverUrl.trim()) return;
     setCoverAnalyzing(true);
     try {
+      const token = await getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/analyze_cover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ image_url: coverUrl }),
       });
@@ -101,7 +106,7 @@ export default function Multimodal() {
     } finally {
       setCoverAnalyzing(false);
     }
-  }, [coverUrl]);
+  }, [coverUrl, getToken]);
 
   // Load reading history genres
   const loadHistoryGenres = useCallback(async () => {
@@ -137,9 +142,12 @@ export default function Multimodal() {
     }
 
     try {
+      const token = await getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/multimodal_recommend', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify(payload),
       });
@@ -156,7 +164,7 @@ export default function Multimodal() {
     } finally {
       setLoading(false);
     }
-  }, [enabledModalities, modalities, mode]);
+  }, [enabledModalities, modalities, mode, getToken]);
 
   const EMOTION_OPTIONS = [
     { value: 'happy', emoji: '😊', label: 'Happy' },
