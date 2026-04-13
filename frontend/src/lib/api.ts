@@ -2,11 +2,13 @@ import { useAuth } from '@clerk/clerk-react';
 import { useMemo } from 'react';
 
 const API_BASE = '';
+const REQUEST_TIMEOUT = 15000; // 15 seconds
+const MAX_RETRIES = 1;
 
 /**
- * Creates a fetch request wrapper that includes Clerk auth token.
+ * Creates a fetch request wrapper with retry, timeout, and Clerk auth token.
  */
-async function request<T>(url: string, options?: RequestInit, token?: string | null): Promise<T> {
+async function request<T>(url: string, options?: RequestInit, token?: string | null, retryCount = 0): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string>),
@@ -17,22 +19,50 @@ async function request<T>(url: string, options?: RequestInit, token?: string | n
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-  if (!res.ok) {
-    // Check if response is HTML (redirect from login_required)
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('text/html')) {
-      throw new Error('AUTH_REQUIRED');
+  try {
+    const res = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      // Check if response is HTML (redirect from login_required)
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('AUTH_REQUIRED');
+      }
+
+      // Retry on server errors (5xx)
+      if (res.status >= 500 && retryCount < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+        return request<T>(url, options, token, retryCount + 1);
+      }
+
+      throw new Error(`API Error: ${res.status}`);
     }
-    throw new Error(`API Error: ${res.status}`);
-  }
 
-  return res.json();
+    return res.json();
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+
+    // Retry on network errors (not aborts or auth issues)
+    const error = err as Error;
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    if (error.message !== 'AUTH_REQUIRED' && retryCount < MAX_RETRIES && !error.message.startsWith('API Error')) {
+      await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+      return request<T>(url, options, token, retryCount + 1);
+    }
+    throw error;
+  }
 }
 
 export interface Book {
@@ -80,6 +110,25 @@ export interface UserProfile {
   name: string;
   email: string;
   role: string;
+}
+
+export interface CoverAnalysisResult {
+  genres: string[];
+  palette: string[];
+  error?: string;
+}
+
+export interface VoiceSearchResult {
+  matches: string[];
+  genre: string | null;
+}
+
+export interface MultimodalResult {
+  books: Book[];
+  genres_used: string[];
+  genre_scores?: Record<string, number>;
+  modalities: number;
+  error?: string;
 }
 
 /**
@@ -158,9 +207,44 @@ export function createApi(getToken: () => Promise<string | null>) {
         body: JSON.stringify({ emotion, mode }),
       }),
 
+    // Multimodal fusion
+    multimodalRecommend: (payload: {
+      text?: string;
+      voice_text?: string;
+      image_genres?: [string, number][];
+      emotion?: string;
+      history_genres?: string[];
+      mode?: string;
+    }) =>
+      authedRequest<MultimodalResult>('/multimodal_recommend', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    // Cover analysis
+    analyzeCover: (imageUrl: string) =>
+      authedRequest<CoverAnalysisResult>('/analyze_cover', {
+        method: 'POST',
+        body: JSON.stringify({ image_url: imageUrl }),
+      }),
+
+    // Voice search
+    voiceSearch: (text: string) =>
+      authedRequest<VoiceSearchResult>('/voice_search', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+
+    // Onboarding
+    saveOnboarding: (genres: string[]) =>
+      authedRequest<{ status: string; redirect?: string; message?: string }>('/onboarding', {
+        method: 'POST',
+        body: JSON.stringify({ genres }),
+      }),
+
     // Admin
     getAdminUsers: () => authedRequest<any[]>('/admin/users'),
-    getAdminAudit: () => authedRequest<any[]>('/admin/audit'),
+    getAdminAudit: (type?: string) => authedRequest<any[]>(`/admin/audit${type ? `?type=${type}` : ''}`),
 
     // Profile
     getProfile: () => authedRequest<{ user: UserProfile; wishlist: WishlistItem[]; history: HistoryItem[]; ratings: any[] }>('/api/profile'),

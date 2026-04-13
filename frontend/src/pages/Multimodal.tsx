@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
@@ -23,7 +22,6 @@ export default function Multimodal() {
   const api = useApi();
   const apiRef = useRef(api);
   apiRef.current = api;
-  const { getToken } = useAuth();
 
   const [modalities, setModalities] = useState<ModalityState>({
     text: '', voice: '', coverGenres: [], emotion: '', historyGenres: [],
@@ -79,34 +77,25 @@ export default function Multimodal() {
     setIsRecording(false);
   }, []);
 
-  // Cover analysis
+  // Cover analysis — uses centralized API
   const analyzeCover = useCallback(async () => {
     if (!coverUrl.trim()) return;
     setCoverAnalyzing(true);
     try {
-      const token = await getToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch('/analyze_cover', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ image_url: coverUrl }),
-      });
-      const data = await res.json();
+      const data = await apiRef.current.analyzeCover(coverUrl);
       setCoverResult({ genres: data.genres || [], palette: data.palette || [] });
       setModalities(prev => ({
         ...prev,
-        coverGenres: (data.genres || []).map((g: any) => (
+        coverGenres: (data.genres || []).map((g: any) =>
           typeof g === 'string' ? { name: g, score: 0.7 } : { name: g[0], score: g[1] }
-        )),
+        ),
       }));
     } catch (err) {
       console.error('Cover analysis failed:', err);
     } finally {
       setCoverAnalyzing(false);
     }
-  }, [coverUrl, getToken]);
+  }, [coverUrl]);
 
   // Load reading history genres
   const loadHistoryGenres = useCallback(async () => {
@@ -125,7 +114,7 @@ export default function Multimodal() {
     }
   }, []);
 
-  // Fuse and recommend
+  // Fuse and recommend — uses centralized API
   const fuseAndRecommend = useCallback(async () => {
     setLoading(true);
     setSearched(true);
@@ -142,16 +131,7 @@ export default function Multimodal() {
     }
 
     try {
-      const token = await getToken();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch('/multimodal_recommend', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const data = await apiRef.current.multimodalRecommend(payload);
       const mappedBooks = (data.books || []).map((b: any) => {
         if (Array.isArray(b)) return { title: b[0], author: b[1], image: b[2], reasons: b[3] };
         return b;
@@ -164,7 +144,7 @@ export default function Multimodal() {
     } finally {
       setLoading(false);
     }
-  }, [enabledModalities, modalities, mode, getToken]);
+  }, [enabledModalities, modalities, mode]);
 
   const EMOTION_OPTIONS = [
     { value: 'happy', emoji: '😊', label: 'Happy' },

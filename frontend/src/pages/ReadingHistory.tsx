@@ -58,8 +58,9 @@ export default function ReadingHistory() {
         const months: Record<string, number> = {};
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         history.forEach((item: any) => {
-          if (item.read_at || item.timestamp) {
-            const d = new Date(item.read_at || item.timestamp);
+          const dateStr = item.read_at || item.timestamp || item.added_at;
+          if (dateStr) {
+            const d = new Date(dateStr);
             const key = monthNames[d.getMonth()];
             months[key] = (months[key] || 0) + 1;
           }

@@ -16,7 +16,7 @@ import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 import Admin from './pages/Admin';
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_bW92ZWQtcHl0aG9uLTkyLmNsZXJrLmFjY291bnRzLmRldiQ';
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (

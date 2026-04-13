@@ -23,6 +23,18 @@ export default defineConfig({
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
+      '/multimodal_recommend': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      '/analyze_cover': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      '/voice_search': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
       '/wishlist': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
@@ -35,11 +47,19 @@ export default defineConfig({
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
+      '/rating': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
       '/book': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
       '/admin': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      '/onboarding': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },

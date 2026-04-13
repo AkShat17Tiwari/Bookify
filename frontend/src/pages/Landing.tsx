@@ -1,16 +1,21 @@
 
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
 import { useParallax, useCountUp, useScrollReveal } from '../hooks/useScrollReveal';
 import BookCard from '../components/UI/BookCard';
 import GenreCard from '../components/UI/GenreCard';
+import SkeletonLoader from '../components/UI/SkeletonLoader';
 import Button from '../components/UI/Button';
+import { useApi } from '../lib/api';
+import type { PopularBook } from '../lib/api';
 
 import { HiOutlineSparkles, HiOutlineLightningBolt, HiOutlineChartBar } from 'react-icons/hi';
 import { RiSparklingFill, RiBrainLine, RiBookOpenLine } from 'react-icons/ri';
 
-const POPULAR_BOOKS = [
+// Fallback data in case the backend is not running
+const FALLBACK_BOOKS: PopularBook[] = [
   { title: 'The Lovely Bones', author: 'Alice Sebold', image: 'https://covers.openlibrary.org/b/isbn/0316666343-M.jpg', rating: 4.2, votes: 1260 },
   { title: 'Wild Animus', author: 'Rich Shapero', image: 'https://covers.openlibrary.org/b/isbn/0971880107-M.jpg', rating: 3.8, votes: 980 },
   { title: 'The Da Vinci Code', author: 'Dan Brown', image: 'https://covers.openlibrary.org/b/isbn/0385504209-M.jpg', rating: 4.5, votes: 2100 },
@@ -30,10 +35,40 @@ export default function Landing() {
   const parallaxOffset = useParallax(0.15);
   const statsRef = useScrollReveal(0.3);
   const navigate = useNavigate();
+  const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
 
-  const bookCount = useCountUp(4893, 2000, statsRef.isVisible);
-  const userCount = useCountUp(1247, 2000, statsRef.isVisible);
-  const genreCount = useCountUp(23, 1500, statsRef.isVisible);
+  // Live data state
+  const [popularBooks, setPopularBooks] = useState<PopularBook[]>([]);
+  const [stats, setStats] = useState({ total_books: 4893, total_genres: 23, total_users: 1247 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPopular = async () => {
+      try {
+        const data = await apiRef.current.getPopularBooks();
+        if (data.books && data.books.length > 0) {
+          setPopularBooks(data.books.slice(0, 8));
+        } else {
+          setPopularBooks(FALLBACK_BOOKS);
+        }
+        if (data.stats) {
+          setStats(data.stats);
+        }
+      } catch (err) {
+        console.warn('Backend not available, using fallback data:', err);
+        setPopularBooks(FALLBACK_BOOKS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPopular();
+  }, []);
+
+  const bookCount = useCountUp(stats.total_books, 2000, statsRef.isVisible);
+  const userCount = useCountUp(stats.total_users, 2000, statsRef.isVisible);
+  const genreCount = useCountUp(stats.total_genres, 1500, statsRef.isVisible);
 
   return (
     <div className="relative overflow-hidden">
@@ -305,26 +340,32 @@ export default function Landing() {
             </motion.div>
           </motion.div>
 
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
-          >
-            {POPULAR_BOOKS.map((book, i) => (
-              <BookCard
-                key={book.title}
-                title={book.title}
-                author={book.author}
-                image={book.image}
-                rating={book.rating}
-                votes={book.votes}
-                index={i}
-                onClick={() => navigate(`/book/${encodeURIComponent(book.title)}`)}
-              />
-            ))}
-          </motion.div>
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+              <SkeletonLoader variant="card" count={8} />
+            </div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
+            >
+              {popularBooks.map((book, i) => (
+                <BookCard
+                  key={book.title}
+                  title={book.title}
+                  author={book.author}
+                  image={book.image}
+                  rating={book.rating}
+                  votes={book.votes}
+                  index={i}
+                  onClick={() => navigate(`/book/${encodeURIComponent(book.title)}`)}
+                />
+              ))}
+            </motion.div>
+          )}
         </div>
       </section>
 

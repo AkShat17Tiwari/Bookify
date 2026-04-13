@@ -1,10 +1,14 @@
 
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
+import SkeletonLoader from '../components/UI/SkeletonLoader';
+import { useApi } from '../lib/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { HiOutlineUsers, HiOutlineBookOpen, HiOutlineShieldCheck, HiOutlineClock, HiOutlineSearch } from 'react-icons/hi';
 
-const USER_DATA = [
+// Fallback static data (used when backend is unavailable)
+const FALLBACK_USER_DATA = [
   { month: 'Jan', users: 120 },
   { month: 'Feb', users: 180 },
   { month: 'Mar', users: 250 },
@@ -13,7 +17,7 @@ const USER_DATA = [
   { month: 'Jun', users: 520 },
 ];
 
-const GENRE_POPULARITY = [
+const FALLBACK_GENRE_POPULARITY = [
   { name: 'Fiction', value: 35 },
   { name: 'Mystery', value: 25 },
   { name: 'Sci-Fi', value: 20 },
@@ -21,7 +25,7 @@ const GENRE_POPULARITY = [
   { name: 'Other', value: 5 },
 ];
 
-const RECENT_SEARCH = [
+const FALLBACK_RECENT_SEARCH = [
   { time: '2 min ago', query: 'The Great Gatsby', type: 'Title', user: 'john@email.com' },
   { time: '5 min ago', query: 'Science Fiction', type: 'Genre', user: 'sarah@email.com' },
   { time: '8 min ago', query: 'Paulo Coelho', type: 'Author', user: 'mike@email.com' },
@@ -29,7 +33,7 @@ const RECENT_SEARCH = [
   { time: '15 min ago', query: 'Romance', type: 'Genre', user: 'bob@email.com' },
 ];
 
-const AUDIT_EVENTS = [
+const FALLBACK_AUDIT_EVENTS = [
   { time: '1 min ago', event: 'User login', level: 'info', user: 'john@email.com' },
   { time: '3 min ago', event: 'Book rated', level: 'info', user: 'sarah@email.com' },
   { time: '7 min ago', event: 'Wishlist updated', level: 'info', user: 'mike@email.com' },
@@ -54,6 +58,83 @@ const styledTooltip = {
 };
 
 export default function Admin() {
+  const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
+
+  const [loading, setLoading] = useState(true);
+  const [userCount, setUserCount] = useState('1,247');
+  const [bookCount, setBookCount] = useState('4,893');
+  const [users, setUsers] = useState<any[]>([]);
+  const [auditEvents, setAuditEvents] = useState<any[]>(FALLBACK_AUDIT_EVENTS);
+  const [recentSearches] = useState(FALLBACK_RECENT_SEARCH);
+  const [userGrowthData, setUserGrowthData] = useState(FALLBACK_USER_DATA);
+  const [genrePopularity, setGenrePopularity] = useState(FALLBACK_GENRE_POPULARITY);
+
+  useEffect(() => {
+    const loadAdmin = async () => {
+      setLoading(true);
+      try {
+        const [usersData, auditData] = await Promise.allSettled([
+          apiRef.current.getAdminUsers(),
+          apiRef.current.getAdminAudit(),
+        ]);
+
+        if (usersData.status === 'fulfilled' && Array.isArray(usersData.value)) {
+          setUsers(usersData.value);
+          setUserCount(usersData.value.length.toLocaleString());
+
+          // Build user growth chart from real registration dates
+          const monthCounts: Record<string, number> = {};
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          usersData.value.forEach((u: any) => {
+            if (u.created_at) {
+              const d = new Date(u.created_at);
+              const key = monthNames[d.getMonth()];
+              monthCounts[key] = (monthCounts[key] || 0) + 1;
+            }
+          });
+          if (Object.keys(monthCounts).length > 0) {
+            const growth = Object.entries(monthCounts).map(([month, users]) => ({ month, users }));
+            setUserGrowthData(growth);
+          }
+        }
+
+        if (auditData.status === 'fulfilled' && Array.isArray(auditData.value)) {
+          const mapped = auditData.value.slice(0, 10).map((e: any) => ({
+            time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : e.time || 'Recent',
+            event: e.event_type || e.event || 'Event',
+            level: e.level || 'info',
+            user: e.user_email || e.user || 'system',
+          }));
+          if (mapped.length > 0) {
+            setAuditEvents(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Admin API unavailable, using fallback data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAdmin();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen px-6 py-12">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <SkeletonLoader variant="card" count={4} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <SkeletonLoader variant="chart" count={2} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen px-6 py-12">
       <div className="max-w-[1400px] mx-auto">
@@ -85,10 +166,10 @@ export default function Admin() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10"
         >
           {[
-            { label: 'Total Users', value: '1,247', change: '+12%', icon: HiOutlineUsers, color: '#4A90D9', bg: 'rgba(74,144,217,0.06)' },
-            { label: 'Total Books', value: '4,893', change: '+3%', icon: HiOutlineBookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.06)' },
+            { label: 'Total Users', value: userCount, change: '+12%', icon: HiOutlineUsers, color: '#4A90D9', bg: 'rgba(74,144,217,0.06)' },
+            { label: 'Total Books', value: bookCount, change: '+3%', icon: HiOutlineBookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.06)' },
             { label: 'Searches Today', value: '342', change: '+28%', icon: HiOutlineSearch, color: '#14B8A6', bg: 'rgba(20,184,166,0.06)' },
-            { label: 'Active Now', value: '47', change: '', icon: HiOutlineClock, color: '#F59E0B', bg: 'rgba(245,158,11,0.06)' },
+            { label: 'Active Now', value: String(users.length > 0 ? Math.min(users.length, 47) : 47), change: '', icon: HiOutlineClock, color: '#F59E0B', bg: 'rgba(245,158,11,0.06)' },
           ].map((stat, i) => (
             <motion.div
               key={stat.label}
@@ -129,7 +210,7 @@ export default function Admin() {
           >
             <h3 className="text-lg font-bold text-text-primary mb-6">📈 User Growth</h3>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={USER_DATA}>
+              <BarChart data={userGrowthData}>
                 <defs>
                   <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#4A90D9" />
@@ -159,18 +240,18 @@ export default function Admin() {
             <h3 className="text-lg font-bold text-text-primary mb-6">📊 Genre Popularity</h3>
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
-                <Pie data={GENRE_POPULARITY} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
-                  {GENRE_POPULARITY.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i]} />
+                <Pie data={genrePopularity} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
+                  {genrePopularity.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip {...styledTooltip} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2 mt-2">
-              {GENRE_POPULARITY.map((entry, i) => (
+              {genrePopularity.map((entry, i) => (
                 <div key={entry.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ background: COLORS[i] }} />
+                  <div className="w-3 h-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
                   <span className="text-xs font-semibold text-text-secondary flex-1">{entry.name}</span>
                   <span className="text-xs font-bold text-text-primary">{entry.value}%</span>
                 </div>
@@ -191,7 +272,7 @@ export default function Admin() {
           >
             <h3 className="text-lg font-bold text-text-primary mb-5">🔍 Recent Searches</h3>
             <div className="space-y-3">
-              {RECENT_SEARCH.map((s, i) => (
+              {recentSearches.map((s, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }}
@@ -228,7 +309,7 @@ export default function Admin() {
           >
             <h3 className="text-lg font-bold text-text-primary mb-5">🔒 Audit Log</h3>
             <div className="space-y-3">
-              {AUDIT_EVENTS.map((event, i) => (
+              {auditEvents.map((event, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }}

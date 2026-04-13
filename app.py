@@ -105,6 +105,11 @@ if genre_available:
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+# ── Environment detection ──
+IS_HF_SPACE = bool(os.environ.get('SPACE_ID'))
+IS_PRODUCTION = IS_HF_SPACE or os.environ.get('ENVIRONMENT') == 'production'
+print(f"\u2699\ufe0f  Environment: {'HF Space' if IS_HF_SPACE else 'production' if IS_PRODUCTION else 'development'}")
+
 app = Flask(__name__, static_folder='frontend/dist')
 
 # Serve React static assets (JS, CSS, images) from /assets/
@@ -891,6 +896,24 @@ def onboarding_page():
                            all_genres=all_genres if genre_available else [])
 
 
+@app.route('/onboarding', methods=['POST'])
+@login_required
+def onboarding_api():
+    """JSON API for React frontend genre onboarding."""
+    user = get_current_user()
+    data = request.get_json()
+    genres = data.get('genres', [])
+    if not genres or len(genres) < 3:
+        return jsonify({'status': 'error', 'message': 'Please pick at least 3 genres'})
+    valid = [g for g in genres if g in genre_books] if genre_available else []
+    if len(valid) < 3:
+        return jsonify({'status': 'error', 'message': 'Please pick at least 3 valid genres'})
+    ok, err = save_genre_preferences(user['id'], valid)
+    if ok:
+        return jsonify({'status': 'saved', 'redirect': '/', 'message': 'Preferences saved!'})
+    return jsonify({'status': 'error', 'message': err})
+
+
 # ══════════════════════════════════════════════════════════════════
 # BOOK DETAILS (Open Library API Proxy)
 # ══════════════════════════════════════════════════════════════════
@@ -1152,11 +1175,18 @@ def api_profile():
     })
 
 
-# ── CORS headers for React dev server ──
+# ── CORS headers for React dev server & HF Spaces ──
+ALLOWED_ORIGINS = {
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+}
+
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get('Origin', '')
-    if origin in ('http://localhost:5173', 'http://127.0.0.1:5173'):
+    # Allow localhost dev + any HF Space origin
+    is_allowed = origin in ALLOWED_ORIGINS or origin.endswith('.hf.space')
+    if is_allowed:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'

@@ -24,13 +24,9 @@ export default function Wishlist() {
     try {
       const data = await api.getWishlist();
       setBooks(data.wishlist || []);
-    } catch {
-      // Use sample data for demo
-      setBooks([
-        { book_title: 'The Great Gatsby', book_author: 'F. Scott Fitzgerald', book_image: 'https://covers.openlibrary.org/b/isbn/0743273567-M.jpg', added_at: '2026-04-10' },
-        { book_title: '1984', book_author: 'George Orwell', book_image: 'https://covers.openlibrary.org/b/isbn/0451524934-M.jpg', added_at: '2026-04-08' },
-        { book_title: 'To Kill a Mockingbird', book_author: 'Harper Lee', book_image: 'https://covers.openlibrary.org/b/isbn/0061120081-M.jpg', added_at: '2026-04-05' },
-      ]);
+    } catch (err) {
+      console.error('Failed to load wishlist:', err);
+      setBooks([]);
     }
     setLoading(false);
   };

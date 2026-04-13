@@ -97,13 +97,15 @@ export default function Profile() {
                   <ul className="space-y-4">
                     {profileData.history.slice(0, 5).map((item: any, i: number) => (
                       <li key={i} className="flex flex-col gap-1 pb-4 border-b border-gray-100 last:border-0">
-                        <span className="font-semibold text-sm">{item.book_title}</span>
+                        <span className="font-semibold text-sm">{item.book_title || item.title}</span>
                         {item.genres && (
                           <span className="text-xs text-bookify-purple font-medium">
                             {item.genres.join(', ')}
                           </span>
                         )}
-                        <span className="text-xs text-text-muted">{new Date(item.timestamp).toLocaleDateString()}</span>
+                        {(item.read_at || item.timestamp) && (
+                          <span className="text-xs text-text-muted">{new Date(item.read_at || item.timestamp).toLocaleDateString()}</span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -129,7 +131,9 @@ export default function Profile() {
                       <li key={i} className="flex justify-between items-center pb-4 border-b border-gray-100 last:border-0">
                         <div className="flex flex-col gap-1">
                           <span className="font-semibold text-sm">{item.book_title}</span>
-                          <span className="text-xs text-text-muted">{new Date(item.timestamp).toLocaleDateString()}</span>
+                          {(item.rated_at || item.timestamp) && (
+                            <span className="text-xs text-text-muted">{new Date(item.rated_at || item.timestamp).toLocaleDateString()}</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 font-bold text-amber-500 bg-amber-50 px-2 py-1 rounded-lg text-sm">
                           ⭐ {item.rating}

@@ -25,7 +25,8 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+    PATH=/home/user/.local/bin:$PATH \
+    ENVIRONMENT=production
 
 # Create app directory with user permissions
 WORKDIR $HOME/app
