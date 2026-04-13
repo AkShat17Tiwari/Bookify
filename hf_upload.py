@@ -1,7 +1,7 @@
 import os
 from huggingface_hub import HfApi
 
-token = os.environ.get("HF_TOKEN", "")
+token = os.environ.get("HF_TOKEN")
 repo_id = "Akshat200343/bookify"
 api = HfApi()
 
