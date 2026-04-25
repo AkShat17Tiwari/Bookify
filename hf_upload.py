@@ -94,4 +94,18 @@ try:
 except Exception as e:
     print(f"  ERROR uploading frontend: {e}")
 
+# Upload the services directory
+print("Uploading services directory...")
+try:
+    api.upload_folder(
+        folder_path=os.path.join(base_dir, "services"),
+        path_in_repo="services",
+        repo_id=repo_id,
+        repo_type="space",
+        token=token,
+        commit_message="Update services"
+    )
+except Exception as e:
+    print(f"  ERROR uploading services: {e}")
+
 print("\nUpload complete!")

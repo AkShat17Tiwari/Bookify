@@ -1175,6 +1175,37 @@ def api_profile():
     })
 
 
+# ══════════════════════════════════════════════════════════════════
+# REALTIME SEARCH (external API fusion)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/api/realtime-search')
+def api_realtime_search():
+    """
+    Real-time book search via external APIs (Open Library + Google Books).
+    Returns JSON in the same shape the frontend expects.
+    Falls back gracefully if external APIs are unavailable.
+    """
+    from services.realtime_service import realtime_search
+
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify({'books': [], 'query': query, 'source': 'realtime',
+                        'error': 'Query too short (minimum 2 characters)'})
+
+    try:
+        result = realtime_search(query)
+        return jsonify(result)
+    except Exception as e:
+        # Never show blank UI — return empty with error info
+        return jsonify({
+            'books': [],
+            'query': query,
+            'source': 'realtime',
+            'error': f'Realtime search unavailable: {str(e)}',
+        })
+
+
 # ── CORS headers for React dev server & HF Spaces ──
 ALLOWED_ORIGINS = {
     'http://localhost:5173',

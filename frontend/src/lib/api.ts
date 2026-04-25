@@ -131,6 +131,27 @@ export interface MultimodalResult {
   error?: string;
 }
 
+export interface RealtimeSearchResult {
+  books: RealtimeBook[];
+  query: string;
+  source: string;
+  cached: boolean;
+  total_raw?: number;
+  total_merged?: number;
+  error?: string;
+}
+
+export interface RealtimeBook {
+  title: string;
+  author: string;
+  image: string;
+  rating?: number | null;
+  year?: number | null;
+  subjects?: string[];
+  reasons?: string[];
+  source?: string;
+}
+
 /**
  * Creates an API client bound to a Clerk auth token.
  */
@@ -248,6 +269,10 @@ export function createApi(getToken: () => Promise<string | null>) {
 
     // Profile
     getProfile: () => authedRequest<{ user: UserProfile; wishlist: WishlistItem[]; history: HistoryItem[]; ratings: any[] }>('/api/profile'),
+
+    // Realtime search (external APIs — no auth required)
+    realtimeSearch: (query: string) =>
+      request<RealtimeSearchResult>(`/api/realtime-search?q=${encodeURIComponent(query)}`),
   };
 }
 

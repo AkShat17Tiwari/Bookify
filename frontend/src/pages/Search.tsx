@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, fadeUp } from '../lib/animations';
 import SearchBar from '../components/UI/SearchBar';
 import BookCard from '../components/UI/BookCard';
 import GenreCard from '../components/UI/GenreCard';
 import SkeletonLoader from '../components/UI/SkeletonLoader';
 import { useApi } from '../lib/api';
-import type { Book } from '../lib/api';
+import type { Book, RealtimeBook } from '../lib/api';
 import { RiSparklingFill } from 'react-icons/ri';
-import { HiOutlineEmojiSad, HiOutlineSearch } from 'react-icons/hi';
+import { HiOutlineEmojiSad, HiOutlineSearch, HiOutlineGlobeAlt, HiOutlineLightningBolt } from 'react-icons/hi';
 
 const MOOD_EMOJIS = [
   { emotion: 'happy', emoji: '😊', label: 'Happy' },
@@ -27,6 +27,9 @@ const ALL_GENRES = [
   'Fiction', 'Religious/Spiritual',
 ];
 
+// ── Realtime search debounce timer ──
+const REALTIME_DEBOUNCE_MS = 400;
+
 export default function Search() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,6 +40,15 @@ export default function Search() {
   const [matchInfo, setMatchInfo] = useState('');
   const [error, setError] = useState('');
 
+  // ── Realtime search state ──
+  const [realtimeResults, setRealtimeResults] = useState<RealtimeBook[]>([]);
+  const [realtimeLoading, setRealtimeLoading] = useState(false);
+  const [realtimeSource, setRealtimeSource] = useState<'none' | 'live' | 'cached'>('none');
+  const [showRealtime, setShowRealtime] = useState(false);
+  const [lastRealtimeQuery, setLastRealtimeQuery] = useState('');
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeAbortRef = useRef(false);
+
   useEffect(() => {
     const genre = searchParams.get('genre');
     if (genre) {
@@ -44,11 +56,58 @@ export default function Search() {
     }
   }, [searchParams]);
 
+  // ── Realtime search: fires alongside existing search ──
+  const triggerRealtimeSearch = useCallback(async (query: string) => {
+    // Skip genre / mood searches
+    if (query.startsWith('📂')) return;
+    if (query.length < 2) return;
+
+    // Mark this request
+    realtimeAbortRef.current = false;
+    setRealtimeLoading(true);
+    setRealtimeSource('none');
+
+    try {
+      const data = await api.realtimeSearch(query);
+
+      // If a newer search was triggered, discard this result
+      if (realtimeAbortRef.current) return;
+
+      if (data.books && data.books.length > 0) {
+        setRealtimeResults(data.books);
+        setRealtimeSource(data.cached ? 'cached' : 'live');
+        setShowRealtime(true);
+        setLastRealtimeQuery(query);
+      } else {
+        setRealtimeResults([]);
+        setShowRealtime(false);
+      }
+    } catch {
+      // Realtime failed — no problem, main search is the fallback
+      setRealtimeResults([]);
+      setShowRealtime(false);
+    } finally {
+      if (!realtimeAbortRef.current) {
+        setRealtimeLoading(false);
+      }
+    }
+  }, [api]);
+
   const handleSearch = async (query: string, mode: string) => {
     setLoading(true);
     setSearched(true);
     setError('');
     setMatchInfo('');
+
+    // Cancel any pending realtime debounce
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+    realtimeAbortRef.current = true;
+
+    // Reset realtime state for fresh search
+    setRealtimeResults([]);
+    setShowRealtime(false);
+    setRealtimeLoading(false);
+    setRealtimeSource('none');
 
     try {
       const data = await api.recommend(query, mode);
@@ -68,6 +127,14 @@ export default function Search() {
     } finally {
       setLoading(false);
     }
+
+    // Fire realtime search in parallel (debounced), only for title searches
+    if (!query.startsWith('📂')) {
+      realtimeAbortRef.current = false;
+      realtimeDebounceRef.current = setTimeout(() => {
+        triggerRealtimeSearch(query);
+      }, 100); // Small delay so main results render first
+    }
   };
 
   const handleMoodSearch = async (emotion: string) => {
@@ -75,6 +142,10 @@ export default function Search() {
     setSearched(true);
     setError('');
     setMatchInfo(`Books for your ${emotion} mood`);
+
+    // Clear realtime for mood search
+    setRealtimeResults([]);
+    setShowRealtime(false);
 
     try {
       const data = await api.moodRecommend(emotion);
@@ -245,6 +316,74 @@ export default function Search() {
                 ))}
               </motion.div>
             )}
+
+            {/* ═══════════════════════════════════════════════════════
+                REALTIME DISCOVERY SECTION (additive, never replaces above)
+                ═══════════════════════════════════════════════════════ */}
+            <AnimatePresence>
+              {(realtimeLoading || showRealtime) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  className="mt-16"
+                >
+                  {/* Section Header */}
+                  <div className="flex items-center gap-3 mb-6">
+                    <div
+                      className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(99,102,241,0.08))',
+                        border: '1px solid rgba(20,184,166,0.15)',
+                        color: '#14B8A6',
+                      }}
+                    >
+                      <HiOutlineGlobeAlt className="text-sm" />
+                      Live Discovery
+                      {realtimeSource === 'cached' && (
+                        <HiOutlineLightningBolt className="text-bookify-amber text-xs" title="Cached result" />
+                      )}
+                    </div>
+                    {lastRealtimeQuery && (
+                      <span className="text-xs text-text-muted">
+                        Exploring the web for "{lastRealtimeQuery}"
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Realtime Loading */}
+                  {realtimeLoading && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                      <SkeletonLoader variant="card" count={4} />
+                    </div>
+                  )}
+
+                  {/* Realtime Results */}
+                  {!realtimeLoading && showRealtime && realtimeResults.length > 0 && (
+                    <motion.div
+                      variants={staggerContainer}
+                      initial="hidden"
+                      animate="visible"
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"
+                    >
+                      {realtimeResults.map((book, i) => (
+                        <BookCard
+                          key={`rt-${book.title}-${i}`}
+                          title={book.title}
+                          author={book.author}
+                          image={book.image}
+                          rating={book.rating ?? undefined}
+                          reasons={book.reasons}
+                          index={i}
+                          onClick={() => navigate(`/book/${encodeURIComponent(book.title)}`)}
+                        />
+                      ))}
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
